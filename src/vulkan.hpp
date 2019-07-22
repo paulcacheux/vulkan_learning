@@ -21,15 +21,18 @@ const bool enableValidationLayers = true;
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
 
     bool isComplete() const {
-        return graphicsFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
 
+class Window;
+
 class VulkanInstance {
   public:
-    VulkanInstance();
+    VulkanInstance(const Window& app_window);
     ~VulkanInstance();
 
     void listExtensions();
@@ -39,13 +42,16 @@ class VulkanInstance {
     std::vector<const char*> _getRequiredExtensions();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
     VkPhysicalDevice _pickPhysicalDevice();
-    std::pair<VkDevice, VkQueue> _createLogicalDevice();
+    std::tuple<VkDevice, VkQueue, VkQueue> _createLogicalDevice();
+    VkSurfaceKHR _createSurface(GLFWwindow* window);
 
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     VkPhysicalDevice _physicalDevice;
     VkDevice _device;
     VkQueue _graphicsQueue;
+    VkQueue _presentQueue;
+    VkSurfaceKHR _surface;
 };
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -64,8 +70,9 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 
 VkApplicationInfo makeAppInfo();
 VkDebugUtilsMessengerCreateInfoEXT makeDebugMessengerCreateInfo();
-int rateDeviceSuitability(VkPhysicalDevice device);
-QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+int rateDeviceSuitability(VkPhysicalDevice device, VkSurfaceKHR surface);
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
+                                     VkSurfaceKHR surface);
 
 } // namespace app
 

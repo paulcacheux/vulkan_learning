@@ -27,6 +27,10 @@ Window::~Window() {
     glfwDestroyWindow(_window);
 }
 
+GLFWwindow* Window::inner() const {
+    return _window;
+}
+
 bool Window::shouldClose() const {
     return glfwWindowShouldClose(_window);
 }

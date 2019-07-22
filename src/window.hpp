@@ -23,6 +23,7 @@ class Window {
     Window(std::size_t width, std::size_t height, std::string title);
     ~Window();
 
+    GLFWwindow* inner() const;
     bool shouldClose() const;
 
   private:

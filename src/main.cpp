@@ -17,7 +17,7 @@ int main() {
     try {
         app::WindowContext context;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
-        app::VulkanInstance instance;
+        app::VulkanInstance instance(window);
 
         // instance.listExtensions();
 

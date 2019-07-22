@@ -4,11 +4,15 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
+#include <tuple>
+
+#include "window.hpp"
 
 namespace app {
 
-VulkanInstance::VulkanInstance() {
+VulkanInstance::VulkanInstance(const app::Window& app_window) {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error(
             "validation layer requested, but not available");
@@ -44,10 +48,9 @@ VulkanInstance::VulkanInstance() {
     }
 
     _debugMessenger = _setupDebugMessenger();
+    _surface = _createSurface(app_window.inner());
     _physicalDevice = _pickPhysicalDevice();
-    auto dq = _createLogicalDevice();
-    _device = dq.first;
-    _graphicsQueue = dq.second;
+    std::tie(_device, _graphicsQueue, _presentQueue) = _createLogicalDevice();
 }
 
 VulkanInstance::~VulkanInstance() {
@@ -56,6 +59,7 @@ VulkanInstance::~VulkanInstance() {
     }
 
     vkDestroyDevice(_device, nullptr);
+    vkDestroySurfaceKHR(_instance, _surface, nullptr);
     vkDestroyInstance(_instance, nullptr);
 }
 
@@ -136,7 +140,7 @@ VkPhysicalDevice VulkanInstance::_pickPhysicalDevice() {
     std::multimap<int, VkPhysicalDevice> candidates;
 
     for (const auto& device : devices) {
-        int score = rateDeviceSuitability(device);
+        int score = rateDeviceSuitability(device, _surface);
         candidates.insert(std::make_pair(score, device));
     }
 
@@ -148,22 +152,31 @@ VkPhysicalDevice VulkanInstance::_pickPhysicalDevice() {
     }
 }
 
-std::pair<VkDevice, VkQueue> VulkanInstance::_createLogicalDevice() {
-    QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
+std::tuple<VkDevice, VkQueue, VkQueue> VulkanInstance::_createLogicalDevice() {
+    QueueFamilyIndices indices = findQueueFamilies(_physicalDevice, _surface);
 
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-    queueCreateInfo.queueCount = 1;
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamilies = {
+        indices.graphicsFamily.value(),
+        indices.presentFamily.value(),
+    };
 
     float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    for (auto queueFamily : uniqueQueueFamilies) {
+        VkDeviceQueueCreateInfo queueCreateInfo = {};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
     VkDeviceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.queueCreateInfoCount = 1;
+    createInfo.queueCreateInfoCount
+        = static_cast<uint32_t>(queueCreateInfos.size());
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
     createInfo.pEnabledFeatures = &deviceFeatures;
 
     createInfo.enabledExtensionCount = 0;
@@ -182,10 +195,21 @@ std::pair<VkDevice, VkQueue> VulkanInstance::_createLogicalDevice() {
         throw std::runtime_error("failed to create logical device");
     }
 
-    VkQueue queue;
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &queue);
+    VkQueue graphicsQueue;
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    VkQueue presentQueue;
+    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
-    return std::make_pair(device, queue);
+    return std::make_tuple(device, graphicsQueue, presentQueue);
+}
+
+VkSurfaceKHR VulkanInstance::_createSurface(GLFWwindow* window) {
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(_instance, window, nullptr, &surface)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create window surface");
+    }
+    return surface;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -264,7 +288,7 @@ VkDebugUtilsMessengerCreateInfoEXT makeDebugMessengerCreateInfo() {
     return createInfo;
 }
 
-int rateDeviceSuitability(VkPhysicalDevice device) {
+int rateDeviceSuitability(VkPhysicalDevice device, VkSurfaceKHR surface) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -282,14 +306,15 @@ int rateDeviceSuitability(VkPhysicalDevice device) {
         return -1;
     }
 
-    if (!findQueueFamilies(device).isComplete()) {
+    if (!findQueueFamilies(device, surface).isComplete()) {
         return -1;
     }
 
     return score;
 }
 
-QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
+                                     VkSurfaceKHR surface) {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
                                              nullptr);
@@ -303,8 +328,20 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         if (queueFamily.queueCount > 0
             && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
+        }
+
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface,
+                                             &presentSupport);
+
+        if (queueFamily.queueCount > 0 && presentSupport) {
+            indices.presentFamily = i;
+        }
+
+        if (indices.isComplete()) {
             break;
         }
+
         i++;
     }
 
