@@ -4,6 +4,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,14 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+
+    bool isComplete() const {
+        return graphicsFamily.has_value();
+    }
+};
+
 class VulkanInstance {
   public:
     VulkanInstance();
@@ -28,11 +37,15 @@ class VulkanInstance {
 
   private:
     std::vector<const char*> _getRequiredExtensions();
-    void _setupDebugMessenger();
-    void _pickPhysicalDevice();
+    VkDebugUtilsMessengerEXT _setupDebugMessenger();
+    VkPhysicalDevice _pickPhysicalDevice();
+    std::pair<VkDevice, VkQueue> _createLogicalDevice();
 
     VkInstance _instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
+    VkDebugUtilsMessengerEXT _debugMessenger;
+    VkPhysicalDevice _physicalDevice;
+    VkDevice _device;
+    VkQueue _graphicsQueue;
 };
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -52,6 +65,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 VkApplicationInfo makeAppInfo();
 VkDebugUtilsMessengerCreateInfoEXT makeDebugMessengerCreateInfo();
 int rateDeviceSuitability(VkPhysicalDevice device);
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 } // namespace app
 

@@ -43,17 +43,19 @@ VulkanInstance::VulkanInstance() {
         throw std::runtime_error("failed to create instance");
     }
 
-    // debug messenger
-    _setupDebugMessenger();
-
-    _pickPhysicalDevice();
+    _debugMessenger = _setupDebugMessenger();
+    _physicalDevice = _pickPhysicalDevice();
+    auto dq = _createLogicalDevice();
+    _device = dq.first;
+    _graphicsQueue = dq.second;
 }
 
 VulkanInstance::~VulkanInstance() {
     if (enableValidationLayers) {
-        DestroyDebugUtilsMessengerEXT(_instance, debugMessenger, nullptr);
+        DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
     }
 
+    vkDestroyDevice(_device, nullptr);
     vkDestroyInstance(_instance, nullptr);
 }
 
@@ -106,7 +108,8 @@ std::vector<const char*> VulkanInstance::_getRequiredExtensions() {
     return extensions;
 }
 
-void VulkanInstance::_setupDebugMessenger() {
+VkDebugUtilsMessengerEXT VulkanInstance::_setupDebugMessenger() {
+    VkDebugUtilsMessengerEXT debugMessenger;
     if (enableValidationLayers) {
         auto createInfo = makeDebugMessengerCreateInfo();
 
@@ -116,11 +119,10 @@ void VulkanInstance::_setupDebugMessenger() {
             throw std::runtime_error("failed to set up debug messenger");
         }
     }
+    return debugMessenger;
 }
 
-void VulkanInstance::_pickPhysicalDevice() {
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-
+VkPhysicalDevice VulkanInstance::_pickPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr);
 
@@ -140,10 +142,50 @@ void VulkanInstance::_pickPhysicalDevice() {
 
     auto it = candidates.rbegin();
     if (it->first > 0) {
-        physicalDevice = it->second;
+        return it->second;
     } else {
         throw std::runtime_error("failed to find a suitable GPU");
     }
+}
+
+std::pair<VkDevice, VkQueue> VulkanInstance::_createLogicalDevice() {
+    QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
+
+    VkDeviceQueueCreateInfo queueCreateInfo = {};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+    queueCreateInfo.queueCount = 1;
+
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures = {};
+    VkDeviceCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pEnabledFeatures = &deviceFeatures;
+
+    createInfo.enabledExtensionCount = 0;
+
+    if (enableValidationLayers) {
+        createInfo.enabledLayerCount
+            = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        createInfo.enabledLayerCount = 0;
+    }
+
+    VkDevice device;
+    if (vkCreateDevice(_physicalDevice, &createInfo, nullptr, &device)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create logical device");
+    }
+
+    VkQueue queue;
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &queue);
+
+    return std::make_pair(device, queue);
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -211,8 +253,8 @@ VkDebugUtilsMessengerCreateInfoEXT makeDebugMessengerCreateInfo() {
     createInfo.messageSeverity
         = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
           | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    // | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
     createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                              | VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                              | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
@@ -240,7 +282,33 @@ int rateDeviceSuitability(VkPhysicalDevice device) {
         return -1;
     }
 
+    if (!findQueueFamilies(device).isComplete()) {
+        return -1;
+    }
+
     return score;
+}
+
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                             nullptr);
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+                                             queueFamilies.data());
+
+    QueueFamilyIndices indices;
+    int i = 0;
+    for (const auto& queueFamily : queueFamilies) {
+        if (queueFamily.queueCount > 0
+            && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            indices.graphicsFamily = i;
+            break;
+        }
+        i++;
+    }
+
+    return indices;
 }
 
 } // namespace app
