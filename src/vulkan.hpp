@@ -26,6 +26,11 @@ class VulkanInstance {
         std::vector<VkImage> images;
     };
 
+    struct PipelineParts {
+        VkPipelineLayout layout;
+        VkPipeline pipeline;
+    };
+
   public:
     VulkanInstance(const Window& appWindow);
     ~VulkanInstance();
@@ -41,8 +46,10 @@ class VulkanInstance {
     VkSurfaceKHR _createSurface(GLFWwindow* window);
     SwapchainParts _createSwapChain();
     std::vector<VkImageView> _createImageViews();
-    void _createGraphicsPipeline();
+    PipelineParts _createGraphicsPipeline();
     VkShaderModule _createShaderModule(const std::string& path);
+    VkRenderPass _createRenderPass();
+    std::vector<VkFramebuffer> _createFramebuffers();
 
     const Window& _appWindow;
     VkInstance _instance;
@@ -51,7 +58,10 @@ class VulkanInstance {
     DeviceParts _deviceParts;
     VkSurfaceKHR _surface;
     SwapchainParts _swapchainParts;
+    PipelineParts _pipelineParts;
     std::vector<VkImageView> _imageViews;
+    VkRenderPass _renderPass;
+    std::vector<VkFramebuffer> _swapchainFramebuffers;
 };
 
 } // namespace app
