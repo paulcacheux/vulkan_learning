@@ -8,6 +8,8 @@
 #include <tuple>
 #include <vector>
 
+#include "vertex.hpp"
+
 namespace app {
 
 class Window;
@@ -39,6 +41,11 @@ class VulkanInstance {
         VkFence inFlight;
     };
 
+    struct Buffer {
+        VkBuffer buffer;
+        VkDeviceMemory bufferMemory;
+    };
+
   public:
     VulkanInstance(const Window& appWindow);
     ~VulkanInstance();
@@ -67,6 +74,7 @@ class VulkanInstance {
     VkCommandPool _createCommandPool();
     std::vector<VkCommandBuffer> _createCommandBuffers();
     std::vector<SyncObject> _createSyncObjects();
+    Buffer _createVertexBuffer();
 
     const Window& _appWindow;
     VkInstance _instance;
@@ -84,6 +92,9 @@ class VulkanInstance {
     std::vector<SyncObject> _syncObjects;
     std::size_t currentFrame = 0;
     bool _mustRecreateSwapchain = false;
+    Buffer _buffer;
+
+    std::vector<scene::Vertex> _vertices;
 };
 
 } // namespace app

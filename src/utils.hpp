@@ -70,6 +70,9 @@ VkPresentModeKHR chooseSwapPresentMode(
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
                             uint32_t width, uint32_t height);
 
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
+                        VkPhysicalDevice device);
+
 } // namespace utils
 
 #endif

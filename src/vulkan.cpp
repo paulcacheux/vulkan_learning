@@ -48,6 +48,8 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
         throw std::runtime_error("failed to create instance");
     }
 
+    _vertices = scene::getVertices();
+
     _debugMessenger = _setupDebugMessenger();
     _surface = _createSurface(appWindow.inner());
     _physicalDevice = _pickPhysicalDevice();
@@ -58,12 +60,16 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
     _pipelineParts = _createGraphicsPipeline();
     _swapchainFramebuffers = _createFramebuffers();
     _commandPool = _createCommandPool();
+    _buffer = _createVertexBuffer();
     _commandBuffers = _createCommandBuffers();
     _syncObjects = _createSyncObjects();
 }
 
 VulkanInstance::~VulkanInstance() {
     cleanupSwapchain();
+
+    vkDestroyBuffer(_deviceParts.device, _buffer.buffer, nullptr);
+    vkFreeMemory(_deviceParts.device, _buffer.bufferMemory, nullptr);
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(_deviceParts.device, pair.imageAvailable, nullptr);
@@ -453,6 +459,14 @@ VulkanInstance::PipelineParts VulkanInstance::_createGraphicsPipeline() {
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
     vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
+    auto bindingDescription = scene::Vertex::getBindingDescription();
+    auto attributeDescriptions = scene::Vertex::getAttributeDescriptions();
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount
+        = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
     inputAssembly.sType
         = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -737,7 +751,11 @@ std::vector<VkCommandBuffer> VulkanInstance::_createCommandBuffers() {
         vkCmdBindPipeline(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                           _pipelineParts.pipeline);
 
-        vkCmdDraw(buffers[i], 3, 1, 0, 0);
+        VkBuffer vertexBuffers[] = {_buffer.buffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
+
+        vkCmdDraw(buffers[i], static_cast<uint32_t>(_vertices.size()), 1, 0, 0);
 
         vkCmdEndRenderPass(buffers[i]);
 
@@ -776,6 +794,51 @@ std::vector<VulkanInstance::SyncObject> VulkanInstance::_createSyncObjects() {
     }
 
     return objects;
+}
+
+VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(_vertices[0]) * _vertices.size();
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkBuffer buffer;
+    if (vkCreateBuffer(_deviceParts.device, &bufferInfo, nullptr, &buffer)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create vertex buffer");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(_deviceParts.device, buffer,
+                                  &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex
+        = utils::findMemoryType(memRequirements.memoryTypeBits,
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                                    | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                _physicalDevice);
+
+    VkDeviceMemory vertexBufferMemory;
+    if (vkAllocateMemory(_deviceParts.device, &allocInfo, nullptr,
+                         &vertexBufferMemory)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate vertex buffer memory");
+    }
+
+    vkBindBufferMemory(_deviceParts.device, buffer, vertexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(_deviceParts.device, vertexBufferMemory, 0, bufferInfo.size, 0,
+                &data);
+    std::memcpy(data, _vertices.data(),
+                static_cast<std::size_t>(bufferInfo.size));
+    vkUnmapMemory(_deviceParts.device, vertexBufferMemory);
+
+    return Buffer{buffer, vertexBufferMemory};
 }
 
 } // namespace app
