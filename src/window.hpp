@@ -25,10 +25,10 @@ class Window {
 
     GLFWwindow* inner() const;
     bool shouldClose() const;
+    std::pair<int, int> getSize() const;
 
   private:
     GLFWwindow* _window;
-    std::size_t _width, _height;
     std::string _title;
 };
 

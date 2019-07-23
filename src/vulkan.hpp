@@ -13,8 +13,21 @@ namespace app {
 class Window;
 
 class VulkanInstance {
+    struct DeviceParts {
+        VkDevice device;
+        VkQueue graphicsQueue;
+        VkQueue presentQueue;
+    };
+
+    struct SwapchainParts {
+        VkSwapchainKHR swapchain;
+        VkFormat format;
+        VkExtent2D extent;
+        std::vector<VkImage> images;
+    };
+
   public:
-    VulkanInstance(const Window& app_window);
+    VulkanInstance(const Window& appWindow);
     ~VulkanInstance();
 
     void listExtensions();
@@ -24,16 +37,21 @@ class VulkanInstance {
     std::vector<const char*> _getRequiredExtensions();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
     VkPhysicalDevice _pickPhysicalDevice();
-    std::tuple<VkDevice, VkQueue, VkQueue> _createLogicalDevice();
+    DeviceParts _createLogicalDevice();
     VkSurfaceKHR _createSurface(GLFWwindow* window);
+    SwapchainParts _createSwapChain();
+    std::vector<VkImageView> _createImageViews();
+    void _createGraphicsPipeline();
+    VkShaderModule _createShaderModule(const std::string& path);
 
+    const Window& _appWindow;
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     VkPhysicalDevice _physicalDevice;
-    VkDevice _device;
-    VkQueue _graphicsQueue;
-    VkQueue _presentQueue;
+    DeviceParts _deviceParts;
     VkSurfaceKHR _surface;
+    SwapchainParts _swapchainParts;
+    std::vector<VkImageView> _imageViews;
 };
 
 } // namespace app

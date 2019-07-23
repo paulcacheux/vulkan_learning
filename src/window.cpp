@@ -15,12 +15,11 @@ void WindowContext::pollEvents() const {
 }
 
 Window::Window(std::size_t width, std::size_t height, std::string title)
-    : _width(width), _height(height), _title(title) {
+    : _title(title) {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    _window
-        = glfwCreateWindow(_width, _height, _title.c_str(), nullptr, nullptr);
+    _window = glfwCreateWindow(width, height, _title.c_str(), nullptr, nullptr);
 
     glfwSetKeyCallback(_window, key_callback);
 }
@@ -35,6 +34,15 @@ GLFWwindow* Window::inner() const {
 
 bool Window::shouldClose() const {
     return glfwWindowShouldClose(_window);
+}
+
+std::pair<int, int> Window::getSize() const {
+    int width;
+    int height;
+
+    glfwGetWindowSize(_window, &width, &height);
+
+    return std::make_pair(width, height);
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action,

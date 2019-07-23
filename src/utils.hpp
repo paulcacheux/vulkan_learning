@@ -36,6 +36,11 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+std::vector<char> readFile(const std::string& path);
+template <class T> T clamp(T value, T min, T max) {
+    return std::max(min, std::min(value, max));
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -58,6 +63,12 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
                                      VkSurfaceKHR surface);
 SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
                                               VkSurfaceKHR surface);
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats);
+VkPresentModeKHR chooseSwapPresentMode(
+    const std::vector<VkPresentModeKHR>& availablePresentModes);
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
+                            uint32_t width, uint32_t height);
 
 } // namespace utils
 

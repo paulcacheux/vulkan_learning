@@ -1,10 +1,25 @@
 #include "utils.hpp"
 
+#include <fstream>
 #include <iostream>
 #include <set>
 #include <vector>
 
 namespace utils {
+
+std::vector<char> readFile(const std::string& path) {
+    std::ifstream f(path, std::ios::ate | std::ios::binary);
+
+    if (!f.is_open()) {
+        throw std::runtime_error("failed to open shader file");
+    }
+
+    std::size_t size = static_cast<std::size_t>(f.tellg());
+    std::vector<char> buffer(size);
+    f.seekg(0);
+    f.read(buffer.data(), size);
+    return buffer;
+}
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -196,6 +211,47 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
     }
 
     return details;
+}
+
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM
+            && availableFormat.colorSpace
+                   == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            return availableFormat;
+        }
+    }
+    return availableFormats.front();
+}
+
+VkPresentModeKHR chooseSwapPresentMode(
+    const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return availablePresentMode;
+        }
+    }
+
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
+                            uint32_t width, uint32_t height) {
+    if (capabilities.currentExtent.width
+        != std::numeric_limits<uint32_t>::max()) {
+        return capabilities.currentExtent;
+    } else {
+        VkExtent2D actualExtent = {width, height};
+        actualExtent.width
+            = clamp(actualExtent.width, capabilities.minImageExtent.width,
+                    capabilities.maxImageExtent.width);
+        actualExtent.height
+            = clamp(actualExtent.height, capabilities.minImageExtent.height,
+                    capabilities.maxImageExtent.height);
+
+        return actualExtent;
+    }
 }
 
 } // namespace utils
