@@ -4,6 +4,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <cstring>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -44,6 +45,8 @@ class VulkanInstance {
     struct Buffer {
         VkBuffer buffer;
         VkDeviceMemory bufferMemory;
+
+        void destroy(VkDevice device);
     };
 
   public:
@@ -75,6 +78,11 @@ class VulkanInstance {
     std::vector<VkCommandBuffer> _createCommandBuffers();
     std::vector<SyncObject> _createSyncObjects();
     Buffer _createVertexBuffer();
+    Buffer _createIndexBuffer();
+    template <class T>
+    VulkanInstance::Buffer
+    _createTwoLevelBuffer(const std::vector<T>& sceneData,
+                          VkBufferUsageFlags addUsage);
     Buffer _createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                          VkMemoryPropertyFlags properties);
     void _copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -95,10 +103,39 @@ class VulkanInstance {
     std::vector<SyncObject> _syncObjects;
     std::size_t currentFrame = 0;
     bool _mustRecreateSwapchain = false;
-    Buffer _buffer;
+    Buffer _vertexBuffer;
+    Buffer _indexBuffer;
 
-    std::vector<scene::Vertex> _vertices;
+    scene::Scene _scene;
 };
+
+template <class T>
+VulkanInstance::Buffer
+VulkanInstance::_createTwoLevelBuffer(const std::vector<T>& sceneData,
+                                      VkBufferUsageFlags addUsage) {
+    auto size = sizeof(T) * sceneData.size();
+
+    Buffer stagingBuffer
+        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* data;
+    vkMapMemory(_deviceParts.device, stagingBuffer.bufferMemory, 0, size, 0,
+                &data);
+    std::memcpy(data, sceneData.data(), static_cast<std::size_t>(size));
+    vkUnmapMemory(_deviceParts.device, stagingBuffer.bufferMemory);
+
+    auto buffer
+        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | addUsage,
+                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    _copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
+
+    stagingBuffer.destroy(_deviceParts.device);
+
+    return buffer;
+}
 
 } // namespace app
 

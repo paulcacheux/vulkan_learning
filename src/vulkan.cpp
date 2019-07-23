@@ -48,8 +48,6 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
         throw std::runtime_error("failed to create instance");
     }
 
-    _vertices = scene::getVertices();
-
     _debugMessenger = _setupDebugMessenger();
     _surface = _createSurface(appWindow.inner());
     _physicalDevice = _pickPhysicalDevice();
@@ -60,7 +58,8 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
     _pipelineParts = _createGraphicsPipeline();
     _swapchainFramebuffers = _createFramebuffers();
     _commandPool = _createCommandPool();
-    _buffer = _createVertexBuffer();
+    _vertexBuffer = _createVertexBuffer();
+    _indexBuffer = _createIndexBuffer();
     _commandBuffers = _createCommandBuffers();
     _syncObjects = _createSyncObjects();
 }
@@ -68,8 +67,8 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
 VulkanInstance::~VulkanInstance() {
     cleanupSwapchain();
 
-    vkDestroyBuffer(_deviceParts.device, _buffer.buffer, nullptr);
-    vkFreeMemory(_deviceParts.device, _buffer.bufferMemory, nullptr);
+    _vertexBuffer.destroy(_deviceParts.device);
+    _indexBuffer.destroy(_deviceParts.device);
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(_deviceParts.device, pair.imageAvailable, nullptr);
@@ -751,11 +750,15 @@ std::vector<VkCommandBuffer> VulkanInstance::_createCommandBuffers() {
         vkCmdBindPipeline(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                           _pipelineParts.pipeline);
 
-        VkBuffer vertexBuffers[] = {_buffer.buffer};
+        VkBuffer vertexBuffers[] = {_vertexBuffer.buffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(buffers[i], _indexBuffer.buffer, 0,
+                             VK_INDEX_TYPE_UINT16);
 
-        vkCmdDraw(buffers[i], static_cast<uint32_t>(_vertices.size()), 1, 0, 0);
+        vkCmdDrawIndexed(buffers[i],
+                         static_cast<uint32_t>(_scene.indices.size()), 1, 0, 0,
+                         0);
 
         vkCmdEndRenderPass(buffers[i]);
 
@@ -797,30 +800,13 @@ std::vector<VulkanInstance::SyncObject> VulkanInstance::_createSyncObjects() {
 }
 
 VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
-    auto size = sizeof(_vertices[0]) * _vertices.size();
+    return _createTwoLevelBuffer(_scene.vertices,
+                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+}
 
-    Buffer stagingBuffer
-        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    void* data;
-    vkMapMemory(_deviceParts.device, stagingBuffer.bufferMemory, 0, size, 0,
-                &data);
-    std::memcpy(data, _vertices.data(), static_cast<std::size_t>(size));
-    vkUnmapMemory(_deviceParts.device, stagingBuffer.bufferMemory);
-
-    auto buffer = _createBuffer(size,
-                                VK_BUFFER_USAGE_TRANSFER_DST_BIT
-                                    | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    _copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
-
-    vkDestroyBuffer(_deviceParts.device, stagingBuffer.buffer, nullptr);
-    vkFreeMemory(_deviceParts.device, stagingBuffer.bufferMemory, nullptr);
-
-    return buffer;
+VulkanInstance::Buffer VulkanInstance::_createIndexBuffer() {
+    return _createTwoLevelBuffer(_scene.indices,
+                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 VulkanInstance::Buffer
@@ -895,6 +881,11 @@ void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     vkQueueWaitIdle(_deviceParts.graphicsQueue);
 
     vkFreeCommandBuffers(_deviceParts.device, _commandPool, 1, &commandBuffer);
+}
+
+void VulkanInstance::Buffer::destroy(VkDevice device) {
+    vkDestroyBuffer(device, buffer, nullptr);
+    vkFreeMemory(device, bufferMemory, nullptr);
 }
 
 } // namespace app

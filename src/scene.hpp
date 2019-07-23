@@ -19,7 +19,11 @@ struct Vertex {
     getAttributeDescriptions();
 };
 
-std::vector<Vertex> getVertices();
+struct Scene {
+    Scene();
+    std::vector<Vertex> vertices;
+    std::vector<uint16_t> indices;
+};
 
 } // namespace scene
 
