@@ -32,6 +32,9 @@ class Window {
     std::string _title;
 };
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action,
+                  int mods);
+
 } // namespace app
 
 #endif

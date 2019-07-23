@@ -21,6 +21,8 @@ Window::Window(std::size_t width, std::size_t height, std::string title)
 
     _window
         = glfwCreateWindow(_width, _height, _title.c_str(), nullptr, nullptr);
+
+    glfwSetKeyCallback(_window, key_callback);
 }
 
 Window::~Window() {
@@ -33,6 +35,13 @@ GLFWwindow* Window::inner() const {
 
 bool Window::shouldClose() const {
     return glfwWindowShouldClose(_window);
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action,
+                  int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
 }
 
 } // namespace app
