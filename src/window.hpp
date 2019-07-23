@@ -26,11 +26,15 @@ class Window {
     GLFWwindow* inner() const;
     bool shouldClose() const;
     std::pair<int, int> getSize() const;
+    std::pair<int, int> getFrameBufferSize() const;
+    void linkResizeToVulkan(VulkanInstance* instance);
 
   private:
     GLFWwindow* _window;
     std::string _title;
 };
+
+void vulkan_resize_callback(GLFWwindow* window, int, int);
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action,
                   int mods);

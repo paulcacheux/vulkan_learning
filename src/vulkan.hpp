@@ -12,6 +12,8 @@ namespace app {
 
 class Window;
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 class VulkanInstance {
     struct DeviceParts {
         VkDevice device;
@@ -31,12 +33,24 @@ class VulkanInstance {
         VkPipeline pipeline;
     };
 
+    struct SyncObject {
+        VkSemaphore imageAvailable;
+        VkSemaphore renderFinished;
+        VkFence inFlight;
+    };
+
   public:
     VulkanInstance(const Window& appWindow);
     ~VulkanInstance();
 
-    void listExtensions();
     bool checkValidationLayerSupport();
+    void drawFrame();
+    void deviceWaitIdle();
+    void cleanupSwapchain();
+    void recreateSwapchain();
+    void setMustRecreateSwapchain() {
+        _mustRecreateSwapchain = true;
+    }
 
   private:
     std::vector<const char*> _getRequiredExtensions();
@@ -50,6 +64,9 @@ class VulkanInstance {
     VkShaderModule _createShaderModule(const std::string& path);
     VkRenderPass _createRenderPass();
     std::vector<VkFramebuffer> _createFramebuffers();
+    VkCommandPool _createCommandPool();
+    std::vector<VkCommandBuffer> _createCommandBuffers();
+    std::vector<SyncObject> _createSyncObjects();
 
     const Window& _appWindow;
     VkInstance _instance;
@@ -62,6 +79,11 @@ class VulkanInstance {
     std::vector<VkImageView> _imageViews;
     VkRenderPass _renderPass;
     std::vector<VkFramebuffer> _swapchainFramebuffers;
+    VkCommandPool _commandPool;
+    std::vector<VkCommandBuffer> _commandBuffers;
+    std::vector<SyncObject> _syncObjects;
+    std::size_t currentFrame = 0;
+    bool _mustRecreateSwapchain = false;
 };
 
 } // namespace app

@@ -18,12 +18,16 @@ int main() {
         app::WindowContext context;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
         app::VulkanInstance instance(window);
+        window.linkResizeToVulkan(&instance);
 
         // instance.listExtensions();
 
         while (!window.shouldClose()) {
             context.pollEvents();
+            instance.drawFrame();
         }
+        instance.deviceWaitIdle();
+
     } catch (std::exception e) {
         std::cerr << e.what() << std::endl;
     }
