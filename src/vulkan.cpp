@@ -52,6 +52,7 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
     _surface = _createSurface(appWindow.inner());
     _physicalDevice = _pickPhysicalDevice();
     _deviceParts = _createLogicalDevice();
+    _allocator = _createAllocator();
     _swapchainParts = _createSwapChain();
     _imageViews = _createImageViews();
     _renderPass = _createRenderPass();
@@ -67,8 +68,9 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
 VulkanInstance::~VulkanInstance() {
     cleanupSwapchain();
 
-    _vertexBuffer.destroy(_deviceParts.device);
-    _indexBuffer.destroy(_deviceParts.device);
+    _vertexBuffer.destroy(_allocator);
+    _indexBuffer.destroy(_allocator);
+    vmaDestroyAllocator(_allocator);
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(_deviceParts.device, pair.imageAvailable, nullptr);
@@ -212,6 +214,16 @@ void VulkanInstance::recreateSwapchain() {
     _pipelineParts = _createGraphicsPipeline();
     _swapchainFramebuffers = _createFramebuffers();
     _commandBuffers = _createCommandBuffers();
+}
+
+VmaAllocator VulkanInstance::_createAllocator() {
+    VmaAllocatorCreateInfo allocInfo = {};
+    allocInfo.physicalDevice = _physicalDevice;
+    allocInfo.device = _deviceParts.device;
+
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocInfo, &allocator);
+    return allocator;
 }
 
 std::vector<const char*> VulkanInstance::_getRequiredExtensions() {
@@ -809,41 +821,23 @@ VulkanInstance::Buffer VulkanInstance::_createIndexBuffer() {
                                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
-VulkanInstance::Buffer
-VulkanInstance::_createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                              VkMemoryPropertyFlags properties) {
+VulkanInstance::Buffer VulkanInstance::_createBuffer(VkDeviceSize size,
+                                                     VkBufferUsageFlags usage,
+                                                     VmaMemoryUsage vmaUsage) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = vmaUsage;
+
     VkBuffer buffer;
-    if (vkCreateBuffer(_deviceParts.device, &bufferInfo, nullptr, &buffer)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create vertex buffer");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(_deviceParts.device, buffer,
-                                  &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = utils::findMemoryType(
-        memRequirements.memoryTypeBits, properties, _physicalDevice);
-
-    VkDeviceMemory vertexBufferMemory;
-    if (vkAllocateMemory(_deviceParts.device, &allocInfo, nullptr,
-                         &vertexBufferMemory)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate vertex buffer memory");
-    }
-
-    vkBindBufferMemory(_deviceParts.device, buffer, vertexBufferMemory, 0);
-
-    return Buffer{buffer, vertexBufferMemory};
+    VmaAllocation allocation;
+    vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
+                    nullptr);
+    return Buffer{buffer, allocation};
 }
 
 void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
@@ -883,9 +877,8 @@ void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     vkFreeCommandBuffers(_deviceParts.device, _commandPool, 1, &commandBuffer);
 }
 
-void VulkanInstance::Buffer::destroy(VkDevice device) {
-    vkDestroyBuffer(device, buffer, nullptr);
-    vkFreeMemory(device, bufferMemory, nullptr);
+void VulkanInstance::Buffer::destroy(VmaAllocator allocator) {
+    vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
 } // namespace app

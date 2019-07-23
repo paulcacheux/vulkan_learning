@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "scene.hpp"
+#include "vk_mem_alloc.h"
 
 namespace app {
 
@@ -44,9 +45,9 @@ class VulkanInstance {
 
     struct Buffer {
         VkBuffer buffer;
-        VkDeviceMemory bufferMemory;
+        VmaAllocation allocation;
 
-        void destroy(VkDevice device);
+        void destroy(VmaAllocator allocator);
     };
 
   public:
@@ -63,6 +64,7 @@ class VulkanInstance {
     }
 
   private:
+    VmaAllocator _createAllocator();
     std::vector<const char*> _getRequiredExtensions();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
     VkPhysicalDevice _pickPhysicalDevice();
@@ -84,10 +86,11 @@ class VulkanInstance {
     _createTwoLevelBuffer(const std::vector<T>& sceneData,
                           VkBufferUsageFlags addUsage);
     Buffer _createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                         VkMemoryPropertyFlags properties);
+                         VmaMemoryUsage vmaUsage);
     void _copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
     const Window& _appWindow;
+    VmaAllocator _allocator;
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     VkPhysicalDevice _physicalDevice;
@@ -115,24 +118,21 @@ VulkanInstance::_createTwoLevelBuffer(const std::vector<T>& sceneData,
                                       VkBufferUsageFlags addUsage) {
     auto size = sizeof(T) * sceneData.size();
 
-    Buffer stagingBuffer
-        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    Buffer stagingBuffer = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                         VMA_MEMORY_USAGE_CPU_ONLY);
 
     void* data;
-    vkMapMemory(_deviceParts.device, stagingBuffer.bufferMemory, 0, size, 0,
-                &data);
+    vmaMapMemory(_allocator, stagingBuffer.allocation, &data);
     std::memcpy(data, sceneData.data(), static_cast<std::size_t>(size));
-    vkUnmapMemory(_deviceParts.device, stagingBuffer.bufferMemory);
+    vmaUnmapMemory(_allocator, stagingBuffer.allocation);
 
     auto buffer
         = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | addUsage,
-                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                        VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     _copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
 
-    stagingBuffer.destroy(_deviceParts.device);
+    stagingBuffer.destroy(_allocator);
 
     return buffer;
 }
