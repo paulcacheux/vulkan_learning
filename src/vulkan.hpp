@@ -75,6 +75,9 @@ class VulkanInstance {
     std::vector<VkCommandBuffer> _createCommandBuffers();
     std::vector<SyncObject> _createSyncObjects();
     Buffer _createVertexBuffer();
+    Buffer _createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                         VkMemoryPropertyFlags properties);
+    void _copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
     const Window& _appWindow;
     VkInstance _instance;

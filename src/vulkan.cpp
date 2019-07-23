@@ -797,10 +797,39 @@ std::vector<VulkanInstance::SyncObject> VulkanInstance::_createSyncObjects() {
 }
 
 VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
+    auto size = sizeof(_vertices[0]) * _vertices.size();
+
+    Buffer stagingBuffer
+        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    void* data;
+    vkMapMemory(_deviceParts.device, stagingBuffer.bufferMemory, 0, size, 0,
+                &data);
+    std::memcpy(data, _vertices.data(), static_cast<std::size_t>(size));
+    vkUnmapMemory(_deviceParts.device, stagingBuffer.bufferMemory);
+
+    auto buffer = _createBuffer(size,
+                                VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                                    | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    _copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
+
+    vkDestroyBuffer(_deviceParts.device, stagingBuffer.buffer, nullptr);
+    vkFreeMemory(_deviceParts.device, stagingBuffer.bufferMemory, nullptr);
+
+    return buffer;
+}
+
+VulkanInstance::Buffer
+VulkanInstance::_createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                              VkMemoryPropertyFlags properties) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(_vertices[0]) * _vertices.size();
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VkBuffer buffer;
@@ -816,11 +845,8 @@ VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex
-        = utils::findMemoryType(memRequirements.memoryTypeBits,
-                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                                    | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                _physicalDevice);
+    allocInfo.memoryTypeIndex = utils::findMemoryType(
+        memRequirements.memoryTypeBits, properties, _physicalDevice);
 
     VkDeviceMemory vertexBufferMemory;
     if (vkAllocateMemory(_deviceParts.device, &allocInfo, nullptr,
@@ -831,14 +857,44 @@ VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
 
     vkBindBufferMemory(_deviceParts.device, buffer, vertexBufferMemory, 0);
 
-    void* data;
-    vkMapMemory(_deviceParts.device, vertexBufferMemory, 0, bufferInfo.size, 0,
-                &data);
-    std::memcpy(data, _vertices.data(),
-                static_cast<std::size_t>(bufferInfo.size));
-    vkUnmapMemory(_deviceParts.device, vertexBufferMemory);
-
     return Buffer{buffer, vertexBufferMemory};
+}
+
+void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
+                                 VkDeviceSize size) {
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool
+        = _commandPool; // TODO: maybe use a different specific command pool
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(_deviceParts.device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(_deviceParts.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(_deviceParts.graphicsQueue);
+
+    vkFreeCommandBuffers(_deviceParts.device, _commandPool, 1, &commandBuffer);
 }
 
 } // namespace app
