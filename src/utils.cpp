@@ -1,4 +1,4 @@
-#include "vulkan_utils.hpp"
+#include "utils.hpp"
 
 #include <iostream>
 #include <set>
@@ -108,6 +108,13 @@ int rateDeviceSuitability(VkPhysicalDevice device, VkSurfaceKHR surface) {
         return -1;
     }
 
+    auto swapChainSupport = querySwapChainSupport(device, surface);
+    auto swapChainAdequate = !swapChainSupport.formats.empty()
+                             && !swapChainSupport.presentModes.empty();
+    if (!swapChainAdequate) {
+        return -1;
+    }
+
     return score;
 }
 
@@ -162,6 +169,33 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
     }
 
     return indices;
+}
+
+SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
+                                              VkSurfaceKHR surface) {
+    SwapChainSupportDetails details;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface,
+                                              &details.capabilities);
+
+    uint32_t formatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount,
+                                         nullptr);
+    if (formatCount != 0) {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount,
+                                             details.formats.data());
+    }
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
+                                              &presentModeCount, nullptr);
+    if (presentModeCount != 0) {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            device, surface, &presentModeCount, details.presentModes.data());
+    }
+
+    return details;
 }
 
 } // namespace utils

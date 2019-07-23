@@ -30,6 +30,12 @@ struct QueueFamilyIndices {
     }
 };
 
+struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -50,6 +56,9 @@ int rateDeviceSuitability(VkPhysicalDevice device, VkSurfaceKHR surface);
 bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
                                      VkSurfaceKHR surface);
+SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
+                                              VkSurfaceKHR surface);
+
 } // namespace utils
 
 #endif

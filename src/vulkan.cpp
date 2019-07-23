@@ -7,7 +7,7 @@
 #include <set>
 #include <stdexcept>
 
-#include "vulkan_utils.hpp"
+#include "utils.hpp"
 #include "window.hpp"
 
 namespace app {
