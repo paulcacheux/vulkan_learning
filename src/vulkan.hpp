@@ -8,7 +8,7 @@
 #include <tuple>
 #include <vector>
 
-#include "vertex.hpp"
+#include "scene.hpp"
 
 namespace app {
 

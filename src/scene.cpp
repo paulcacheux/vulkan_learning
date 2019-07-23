@@ -1,4 +1,4 @@
-#include "vertex.hpp"
+#include "scene.hpp"
 
 namespace scene {
 
