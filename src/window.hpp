@@ -28,6 +28,7 @@ class Window {
     std::pair<int, int> getSize() const;
     std::pair<int, int> getFrameBufferSize() const;
     void linkResizeToVulkan(VulkanInstance* instance);
+    void waitUntilUnminimized() const;
 
   private:
     GLFWwindow* _window;

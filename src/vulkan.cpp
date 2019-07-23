@@ -195,6 +195,8 @@ void VulkanInstance::cleanupSwapchain() {
 }
 
 void VulkanInstance::recreateSwapchain() {
+    _appWindow.waitUntilUnminimized();
+
     deviceWaitIdle();
 
     cleanupSwapchain();

@@ -53,6 +53,14 @@ void Window::linkResizeToVulkan(VulkanInstance* instance) {
     glfwSetFramebufferSizeCallback(_window, vulkan_resize_callback);
 }
 
+void Window::waitUntilUnminimized() const {
+    int width = 0, height = 0;
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(_window, &width, &height);
+        glfwWaitEvents();
+    }
+}
+
 void vulkan_resize_callback(GLFWwindow* window, int, int) {
     auto app
         = reinterpret_cast<VulkanInstance*>(glfwGetWindowUserPointer(window));
