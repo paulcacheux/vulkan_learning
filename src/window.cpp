@@ -48,7 +48,7 @@ std::pair<int, int> Window::getFrameBufferSize() const {
     return std::make_pair(width, height);
 }
 
-void Window::linkResizeToVulkan(VulkanInstance* instance) {
+void Window::linkResizeToVulkan(vulkan::Instance* instance) {
     glfwSetWindowUserPointer(_window, instance);
     glfwSetFramebufferSizeCallback(_window, vulkan_resize_callback);
 }
@@ -63,7 +63,7 @@ void Window::waitUntilUnminimized() const {
 
 void vulkan_resize_callback(GLFWwindow* window, int, int) {
     auto app
-        = reinterpret_cast<VulkanInstance*>(glfwGetWindowUserPointer(window));
+        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
     app->setMustRecreateSwapchain();
 }
 

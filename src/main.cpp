@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-#include "vulkan.hpp"
+#include "vulkan/instance.hpp"
 #include "window.hpp"
 
 const std::size_t WIDTH = 800;
@@ -17,7 +17,7 @@ int main() {
     try {
         app::WindowContext context;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
-        app::VulkanInstance instance(window);
+        vulkan::Instance instance(window);
         window.linkResizeToVulkan(&instance);
 
         // instance.listExtensions();

@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O")
 
 file(GLOB_RECURSE src_files "src/*.cpp" "vma/*.cpp")
 include_directories(vma)
+include_directories(include)
 
 add_executable(vulkan_tuto ${src_files})
 
