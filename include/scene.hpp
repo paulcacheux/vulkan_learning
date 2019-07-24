@@ -39,6 +39,11 @@ struct Scene {
 
 struct Camera {
     Camera();
+    glm::vec3 getXVector() const;
+    glm::vec3 getYVector() const;
+    glm::vec3 getZVector() const;
+
+    // movement
     void moveLeft(float offset);
     void moveRight(float offset);
     void moveUp(float offset);
@@ -46,11 +51,17 @@ struct Camera {
     void moveFront(float offset);
     void moveBack(float offset);
     void updateEyeAndCenter(glm::vec3 offset);
+    // view
+    void updateViewTarget(glm::vec2 offset);
+
+    glm::mat4 computeInViewCoordinates(glm::mat4 trans) const;
     glm::mat4 getViewMatrix() const;
 
     glm::vec3 eye;
     glm::vec3 center;
 };
+
+glm::vec3 applyTransPoint(glm::vec3 point, glm::mat4 trans);
 
 } // namespace scene
 

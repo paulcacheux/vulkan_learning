@@ -23,6 +23,7 @@ class Game {
     void update(float dt);
     bool getInputState(InputState is) const;
     void setInputState(InputState is, bool value);
+    void setNewMouseInput(double xpos, double ypos);
 
     const scene::Scene& getScene() const;
     const scene::Camera& getCamera() const;
@@ -31,6 +32,8 @@ class Game {
     scene::Scene _scene;
     scene::Camera _camera;
     std::array<bool, inputStateSize> _states = {false};
+    double _xpos = 0, _ypos = 0;
+    glm::vec2 _currentMouseVec{};
 };
 
 #endif

@@ -22,10 +22,7 @@ Window::Window(std::size_t width, std::size_t height, std::string title)
     : _title(title) {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
     _window = glfwCreateWindow(width, height, _title.c_str(), nullptr, nullptr);
-
-    glfwSetKeyCallback(_window, key_callback);
 }
 
 Window::~Window() {
@@ -52,12 +49,18 @@ std::pair<int, int> Window::getFrameBufferSize() const {
     return std::make_pair(width, height);
 }
 
-void Window::linkToInstance(vulkan::Instance* instance) {
-    glfwSetWindowUserPointer(_window, instance);
+void Window::switchToRawMouseMode() const {
+    glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
 }
 
-void Window::setupResizeCallback() {
-    glfwSetFramebufferSizeCallback(_window, vulkan_resize_callback);
+void Window::linkToInstance(vulkan::Instance* instance) const {
+    glfwSetWindowUserPointer(_window, instance);
+    glfwSetKeyCallback(_window, key_callback);
+    glfwSetFramebufferSizeCallback(_window, resize_callback);
+    glfwSetCursorPosCallback(_window, mouse_pos_callback);
 }
 
 void Window::waitUntilUnminimized() const {
@@ -68,7 +71,7 @@ void Window::waitUntilUnminimized() const {
     }
 }
 
-void vulkan_resize_callback(GLFWwindow* window, int, int) {
+void resize_callback(GLFWwindow* window, int, int) {
     auto instance
         = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
     instance->setMustRecreateSwapchain();
@@ -103,6 +106,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action,
     } else if (key == GLFW_KEY_D) {
         instance->game.setInputState(InputState::Right, pressed);
     }
+}
+
+void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
+    auto instance
+        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
+    instance->game.setNewMouseInput(xpos, ypos);
 }
 
 } // namespace app

@@ -1,5 +1,7 @@
 #include "scene.hpp"
 
+#include <iostream>
+
 namespace scene {
 
 VkVertexInputBindingDescription Vertex::getBindingDescription() {
@@ -41,8 +43,8 @@ Scene::Scene() {
         {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
     };
 
-    addTriangle({0, 1, 2});
-    addTriangle({2, 3, 0});
+    addTriangle({2, 1, 0});
+    addTriangle({0, 3, 2});
     addTriangle({4, 5, 6});
     addTriangle({6, 7, 4});
     addTriangle({4, 3, 0});
@@ -77,29 +79,55 @@ Camera::Camera() {
 void Camera::moveLeft(float offset) {
     updateEyeAndCenter(glm::vec3(-offset, .0f, .0f));
 }
+
 void Camera::moveRight(float offset) {
     updateEyeAndCenter(glm::vec3(offset, .0f, .0f));
 }
+
 void Camera::moveUp(float offset) {
     updateEyeAndCenter(glm::vec3(.0f, offset, .0f));
 }
+
 void Camera::moveDown(float offset) {
     updateEyeAndCenter(glm::vec3(.0f, -offset, .0f));
 }
+
 void Camera::moveFront(float offset) {
     updateEyeAndCenter(glm::vec3(.0f, .0f, -offset));
 }
+
 void Camera::moveBack(float offset) {
     updateEyeAndCenter(glm::vec3(.0f, .0f, offset));
 }
+
 void Camera::updateEyeAndCenter(glm::vec3 offset) {
-    eye += offset;
-    center += offset;
+    auto trans = glm::translate(glm::mat4(1.0f), offset);
+    auto realTrans = computeInViewCoordinates(trans);
+    eye = applyTransPoint(eye, realTrans);
+    center = applyTransPoint(center, realTrans);
 }
 
+void Camera::updateViewTarget(glm::vec2 offset) {
+    auto nextOffset = glm::vec3(offset.x, -offset.y, .0f);
+    auto trans = glm::translate(glm::mat4(1.0f), nextOffset);
+    auto realTrans = computeInViewCoordinates(trans);
+    center = applyTransPoint(center, realTrans);
+}
+
+glm::mat4 Camera::computeInViewCoordinates(glm::mat4 trans) const {
+    auto view = getViewMatrix();
+    auto inv = glm::inverse(view);
+    return inv * trans * view;
+}
 glm::mat4 Camera::getViewMatrix() const {
     glm::vec3 up(0.0f, 1.0f, 0.0f);
     return glm::lookAt(eye, center, up);
+}
+
+glm::vec3 applyTransPoint(glm::vec3 point, glm::mat4 trans) {
+    auto point4 = glm::vec4(point, 1.0f);
+    auto res = trans * point4;
+    return glm::vec3(res.x, res.y, res.z);
 }
 
 } // namespace scene

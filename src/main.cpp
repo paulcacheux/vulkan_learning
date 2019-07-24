@@ -29,7 +29,7 @@ int main() {
         vulkan::Instance instance(window, game);
 
         window.linkToInstance(&instance);
-        window.setupResizeCallback();
+        window.switchToRawMouseMode();
 
         auto maxFps = 144;
         auto frameMinDuration
@@ -51,7 +51,7 @@ int main() {
             lastTime = currentTime;
             float dtf = dt.count();
 
-            std::cout << "FPS: " << 1 / dtf << "\n";
+            // std::cout << "FPS: " << 1 / dtf << "\n";
 
             context.pollEvents();
             game.update(dtf);

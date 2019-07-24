@@ -29,8 +29,8 @@ class Window {
     bool shouldClose() const;
     std::pair<int, int> getSize() const;
     std::pair<int, int> getFrameBufferSize() const;
-    void linkToInstance(vulkan::Instance* instance);
-    void setupResizeCallback();
+    void switchToRawMouseMode() const;
+    void linkToInstance(vulkan::Instance* instance) const;
     void waitUntilUnminimized() const;
 
   private:
@@ -38,10 +38,12 @@ class Window {
     std::string _title;
 };
 
-void vulkan_resize_callback(GLFWwindow* window, int, int);
+void resize_callback(GLFWwindow* window, int, int);
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action,
                   int mods);
+
+void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);
 
 } // namespace app
 
