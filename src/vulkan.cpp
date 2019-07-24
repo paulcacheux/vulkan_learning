@@ -1,6 +1,7 @@
 #include "vulkan.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -56,11 +57,15 @@ VulkanInstance::VulkanInstance(const app::Window& appWindow)
     _swapchainParts = _createSwapChain();
     _imageViews = _createImageViews();
     _renderPass = _createRenderPass();
+    _descriptorSetLayout = _createDescriptorSetLayout();
     _pipelineParts = _createGraphicsPipeline();
     _swapchainFramebuffers = _createFramebuffers();
     _commandPool = _createCommandPool();
     _vertexBuffer = _createVertexBuffer();
     _indexBuffer = _createIndexBuffer();
+    _uniformBuffers = _createUniformBuffers();
+    _descriptorPool = _createDescriptorPool();
+    _descriptorSets = _createDescriptorSets();
     _commandBuffers = _createCommandBuffers();
     _syncObjects = _createSyncObjects();
 }
@@ -72,15 +77,17 @@ VulkanInstance::~VulkanInstance() {
     _indexBuffer.destroy(_allocator);
     vmaDestroyAllocator(_allocator);
 
+    vkDestroyDescriptorSetLayout(_device(), _descriptorSetLayout, nullptr);
+
     for (const auto& pair : _syncObjects) {
-        vkDestroySemaphore(_deviceParts.device, pair.imageAvailable, nullptr);
-        vkDestroySemaphore(_deviceParts.device, pair.renderFinished, nullptr);
-        vkDestroyFence(_deviceParts.device, pair.inFlight, nullptr);
+        vkDestroySemaphore(_device(), pair.imageAvailable, nullptr);
+        vkDestroySemaphore(_device(), pair.renderFinished, nullptr);
+        vkDestroyFence(_device(), pair.inFlight, nullptr);
     }
 
-    vkDestroyCommandPool(_deviceParts.device, _commandPool, nullptr);
+    vkDestroyCommandPool(_device(), _commandPool, nullptr);
 
-    vkDestroyDevice(_deviceParts.device, nullptr);
+    vkDestroyDevice(_device(), nullptr);
     if (utils::enableValidationLayers) {
         utils::DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger,
                                              nullptr);
@@ -112,14 +119,14 @@ bool VulkanInstance::checkValidationLayerSupport() {
 void VulkanInstance::drawFrame() {
     auto currentSync = _syncObjects[currentFrame];
 
-    vkWaitForFences(_deviceParts.device, 1, &currentSync.inFlight, VK_TRUE,
+    vkWaitForFences(_device(), 1, &currentSync.inFlight, VK_TRUE,
                     std::numeric_limits<uint64_t>::max());
 
     uint32_t imageIndex;
-    auto acqRes = vkAcquireNextImageKHR(
-        _deviceParts.device, _swapchainParts.swapchain,
-        std::numeric_limits<uint64_t>::max(), currentSync.imageAvailable,
-        VK_NULL_HANDLE, &imageIndex);
+    auto acqRes = vkAcquireNextImageKHR(_device(), _swapchainParts.swapchain,
+                                        std::numeric_limits<uint64_t>::max(),
+                                        currentSync.imageAvailable,
+                                        VK_NULL_HANDLE, &imageIndex);
 
     if (acqRes == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
@@ -127,6 +134,8 @@ void VulkanInstance::drawFrame() {
     } else if (acqRes != VK_SUCCESS && acqRes != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swapchain image");
     }
+
+    updateUniformBuffer(imageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -146,7 +155,7 @@ void VulkanInstance::drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkResetFences(_deviceParts.device, 1, &currentSync.inFlight);
+    vkResetFences(_device(), 1, &currentSync.inFlight);
     if (vkQueueSubmit(_deviceParts.graphicsQueue, 1, &submitInfo,
                       currentSync.inFlight)
         != VK_SUCCESS) {
@@ -177,28 +186,32 @@ void VulkanInstance::drawFrame() {
 }
 
 void VulkanInstance::deviceWaitIdle() {
-    vkDeviceWaitIdle(_deviceParts.device);
+    vkDeviceWaitIdle(_device());
 }
 
 void VulkanInstance::cleanupSwapchain() {
     for (auto fb : _swapchainFramebuffers) {
-        vkDestroyFramebuffer(_deviceParts.device, fb, nullptr);
+        vkDestroyFramebuffer(_device(), fb, nullptr);
     }
 
     for (auto imageView : _imageViews) {
-        vkDestroyImageView(_deviceParts.device, imageView, nullptr);
+        vkDestroyImageView(_device(), imageView, nullptr);
     }
 
-    vkFreeCommandBuffers(_deviceParts.device, _commandPool,
+    for (auto& uniformBuffer : _uniformBuffers) {
+        uniformBuffer.destroy(_allocator);
+    }
+
+    vkDestroyDescriptorPool(_device(), _descriptorPool, nullptr);
+
+    vkFreeCommandBuffers(_device(), _commandPool,
                          static_cast<uint32_t>(_commandBuffers.size()),
                          _commandBuffers.data());
 
-    vkDestroySwapchainKHR(_deviceParts.device, _swapchainParts.swapchain,
-                          nullptr);
-    vkDestroyPipeline(_deviceParts.device, _pipelineParts.pipeline, nullptr);
-    vkDestroyPipelineLayout(_deviceParts.device, _pipelineParts.layout,
-                            nullptr);
-    vkDestroyRenderPass(_deviceParts.device, _renderPass, nullptr);
+    vkDestroySwapchainKHR(_device(), _swapchainParts.swapchain, nullptr);
+    vkDestroyPipeline(_device(), _pipelineParts.pipeline, nullptr);
+    vkDestroyPipelineLayout(_device(), _pipelineParts.layout, nullptr);
+    vkDestroyRenderPass(_device(), _renderPass, nullptr);
 }
 
 void VulkanInstance::recreateSwapchain() {
@@ -213,13 +226,46 @@ void VulkanInstance::recreateSwapchain() {
     _renderPass = _createRenderPass();
     _pipelineParts = _createGraphicsPipeline();
     _swapchainFramebuffers = _createFramebuffers();
+    _uniformBuffers = _createUniformBuffers();
+    _descriptorPool = _createDescriptorPool();
+    _descriptorSets = _createDescriptorSets();
     _commandBuffers = _createCommandBuffers();
+}
+
+void VulkanInstance::updateUniformBuffer(uint32_t currentImage) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                     currentTime - startTime)
+                     .count();
+
+    scene::UniformBufferObject ubo;
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+                            glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view
+        = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                      glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f),
+                                _swapchainParts.extent.width
+                                    / (float)_swapchainParts.extent.height,
+                                0.1f, 10.0f);
+    ubo.proj[1][1] *= -1; // openGL -> Vulkan conversion
+
+    void* data;
+    vmaMapMemory(_allocator, _uniformBuffers[currentImage].allocation, &data);
+    std::memcpy(data, &ubo, sizeof(ubo));
+    vmaUnmapMemory(_allocator, _uniformBuffers[currentImage].allocation);
+}
+
+VkDevice VulkanInstance::_device() {
+    return _deviceParts.device;
 }
 
 VmaAllocator VulkanInstance::_createAllocator() {
     VmaAllocatorCreateInfo allocInfo = {};
     allocInfo.physicalDevice = _physicalDevice;
-    allocInfo.device = _deviceParts.device;
+    allocInfo.device = _device();
 
     VmaAllocator allocator;
     vmaCreateAllocator(&allocInfo, &allocator);
@@ -393,20 +439,81 @@ VulkanInstance::SwapchainParts VulkanInstance::_createSwapChain() {
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     VkSwapchainKHR swapchain;
-    if (vkCreateSwapchainKHR(_deviceParts.device, &createInfo, nullptr,
-                             &swapchain)
+    if (vkCreateSwapchainKHR(_device(), &createInfo, nullptr, &swapchain)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create swapchain");
     }
 
     std::vector<VkImage> images;
-    vkGetSwapchainImagesKHR(_deviceParts.device, swapchain, &imageCount,
-                            nullptr);
+    vkGetSwapchainImagesKHR(_device(), swapchain, &imageCount, nullptr);
     images.resize(imageCount);
-    vkGetSwapchainImagesKHR(_deviceParts.device, swapchain, &imageCount,
-                            images.data());
+    vkGetSwapchainImagesKHR(_device(), swapchain, &imageCount, images.data());
 
     return SwapchainParts{swapchain, surfaceFormat.format, extent, images};
+}
+
+VkDescriptorSetLayout VulkanInstance::_createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    VkDescriptorSetLayout descriptorSetLayout;
+    if (vkCreateDescriptorSetLayout(_device(), &layoutInfo, nullptr,
+                                    &descriptorSetLayout)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout");
+    }
+
+    return descriptorSetLayout;
+}
+
+std::vector<VkDescriptorSet> VulkanInstance::_createDescriptorSets() {
+    auto size = _swapchainParts.images.size();
+    std::vector<VkDescriptorSetLayout> layouts(size, _descriptorSetLayout);
+
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(size);
+    allocInfo.pSetLayouts = layouts.data();
+
+    std::vector<VkDescriptorSet> descriptorSets(size);
+    if (vkAllocateDescriptorSets(_device(), &allocInfo, descriptorSets.data())
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets");
+    }
+
+    for (std::size_t i = 0; i < size; ++i) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = _uniformBuffers[i].buffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(scene::UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite = {};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr;
+        descriptorWrite.pTexelBufferView = nullptr;
+
+        vkUpdateDescriptorSets(_device(), 1, &descriptorWrite, 0, nullptr);
+    }
+
+    return descriptorSets;
 }
 
 std::vector<VkImageView> VulkanInstance::_createImageViews() {
@@ -431,8 +538,7 @@ std::vector<VkImageView> VulkanInstance::_createImageViews() {
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(_deviceParts.device, &createInfo, nullptr,
-                              &imageViews[i])
+        if (vkCreateImageView(_device(), &createInfo, nullptr, &imageViews[i])
             != VK_SUCCESS) {
             throw std::runtime_error("failed to create image view");
         }
@@ -516,6 +622,8 @@ VulkanInstance::PipelineParts VulkanInstance::_createGraphicsPipeline() {
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     VkPipelineMultisampleStateCreateInfo multisampling = {};
     multisampling.sType
@@ -566,14 +674,14 @@ VulkanInstance::PipelineParts VulkanInstance::_createGraphicsPipeline() {
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &_descriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
     VkPipelineLayout pipelineLayout;
-    if (vkCreatePipelineLayout(_deviceParts.device, &pipelineLayoutInfo,
-                               nullptr, &pipelineLayout)
+    if (vkCreatePipelineLayout(_device(), &pipelineLayoutInfo, nullptr,
+                               &pipelineLayout)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout");
     }
@@ -597,14 +705,14 @@ VulkanInstance::PipelineParts VulkanInstance::_createGraphicsPipeline() {
     pipelineInfo.basePipelineIndex = -1;
 
     VkPipeline pipeline;
-    if (vkCreateGraphicsPipelines(_deviceParts.device, VK_NULL_HANDLE, 1,
-                                  &pipelineInfo, nullptr, &pipeline)
+    if (vkCreateGraphicsPipelines(_device(), VK_NULL_HANDLE, 1, &pipelineInfo,
+                                  nullptr, &pipeline)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline");
     }
 
-    vkDestroyShaderModule(_deviceParts.device, vertModule, nullptr);
-    vkDestroyShaderModule(_deviceParts.device, fragModule, nullptr);
+    vkDestroyShaderModule(_device(), vertModule, nullptr);
+    vkDestroyShaderModule(_device(), fragModule, nullptr);
 
     return PipelineParts{pipelineLayout, pipeline};
 }
@@ -618,7 +726,7 @@ VkShaderModule VulkanInstance::_createShaderModule(const std::string& path) {
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
     VkShaderModule module;
-    if (vkCreateShaderModule(_deviceParts.device, &createInfo, nullptr, &module)
+    if (vkCreateShaderModule(_device(), &createInfo, nullptr, &module)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create shader module");
     }
@@ -666,8 +774,7 @@ VkRenderPass VulkanInstance::_createRenderPass() {
     renderPassInfo.pDependencies = &dependency;
 
     VkRenderPass renderPass;
-    if (vkCreateRenderPass(_deviceParts.device, &renderPassInfo, nullptr,
-                           &renderPass)
+    if (vkCreateRenderPass(_device(), &renderPassInfo, nullptr, &renderPass)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass");
     }
@@ -690,8 +797,7 @@ std::vector<VkFramebuffer> VulkanInstance::_createFramebuffers() {
         fbInfo.height = _swapchainParts.extent.height;
         fbInfo.layers = 1;
 
-        if (vkCreateFramebuffer(_deviceParts.device, &fbInfo, nullptr,
-                                &framebuffers[i])
+        if (vkCreateFramebuffer(_device(), &fbInfo, nullptr, &framebuffers[i])
             != VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer");
         }
@@ -710,8 +816,7 @@ VkCommandPool VulkanInstance::_createCommandPool() {
     poolInfo.flags = 0;
 
     VkCommandPool commandPool;
-    if (vkCreateCommandPool(_deviceParts.device, &poolInfo, nullptr,
-                            &commandPool)
+    if (vkCreateCommandPool(_device(), &poolInfo, nullptr, &commandPool)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool");
     }
@@ -728,8 +833,7 @@ std::vector<VkCommandBuffer> VulkanInstance::_createCommandBuffers() {
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
 
-    if (vkAllocateCommandBuffers(_deviceParts.device, &allocInfo,
-                                 buffers.data())
+    if (vkAllocateCommandBuffers(_device(), &allocInfo, buffers.data())
         != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers");
     }
@@ -767,6 +871,9 @@ std::vector<VkCommandBuffer> VulkanInstance::_createCommandBuffers() {
         vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(buffers[i], _indexBuffer.buffer, 0,
                              VK_INDEX_TYPE_UINT16);
+        vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                _pipelineParts.layout, 0, 1,
+                                &_descriptorSets[i], 0, nullptr);
 
         vkCmdDrawIndexed(buffers[i],
                          static_cast<uint32_t>(_scene.indices.size()), 1, 0, 0,
@@ -794,14 +901,13 @@ std::vector<VulkanInstance::SyncObject> VulkanInstance::_createSyncObjects() {
 
     for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         SyncObject sync;
-        if (vkCreateSemaphore(_deviceParts.device, &semInfo, nullptr,
+        if (vkCreateSemaphore(_device(), &semInfo, nullptr,
                               &sync.imageAvailable)
                 != VK_SUCCESS
-            || vkCreateSemaphore(_deviceParts.device, &semInfo, nullptr,
+            || vkCreateSemaphore(_device(), &semInfo, nullptr,
                                  &sync.renderFinished)
                    != VK_SUCCESS
-            || vkCreateFence(_deviceParts.device, &fenceInfo, nullptr,
-                             &sync.inFlight)
+            || vkCreateFence(_device(), &fenceInfo, nullptr, &sync.inFlight)
                    != VK_SUCCESS) {
             throw std::runtime_error("failed to create semaphore");
         }
@@ -819,6 +925,43 @@ VulkanInstance::Buffer VulkanInstance::_createVertexBuffer() {
 VulkanInstance::Buffer VulkanInstance::_createIndexBuffer() {
     return _createTwoLevelBuffer(_scene.indices,
                                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+}
+
+std::vector<VulkanInstance::Buffer> VulkanInstance::_createUniformBuffers() {
+    VkDeviceSize bufferSize = sizeof(scene::UniformBufferObject);
+    auto size = _swapchainParts.images.size();
+    std::vector<Buffer> buffers;
+    buffers.reserve(size);
+
+    for (std::size_t i = 0; i < size; ++i) {
+        auto buffer
+            = _createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                            VMA_MEMORY_USAGE_CPU_TO_GPU);
+        buffers.push_back(buffer);
+    }
+
+    return buffers;
+}
+
+VkDescriptorPool VulkanInstance::_createDescriptorPool() {
+    VkDescriptorPoolSize poolSize = {};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount
+        = static_cast<uint32_t>(_swapchainParts.images.size());
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+
+    poolInfo.maxSets = static_cast<uint32_t>(_swapchainParts.images.size());
+
+    VkDescriptorPool pool;
+    if (vkCreateDescriptorPool(_device(), &poolInfo, nullptr, &pool)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool");
+    }
+    return pool;
 }
 
 VulkanInstance::Buffer VulkanInstance::_createBuffer(VkDeviceSize size,
@@ -850,7 +993,7 @@ void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(_deviceParts.device, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(_device(), &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -874,7 +1017,7 @@ void VulkanInstance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     vkQueueSubmit(_deviceParts.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(_deviceParts.graphicsQueue);
 
-    vkFreeCommandBuffers(_deviceParts.device, _commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(_device(), _commandPool, 1, &commandBuffer);
 }
 
 void VulkanInstance::Buffer::destroy(VmaAllocator allocator) {

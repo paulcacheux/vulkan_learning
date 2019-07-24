@@ -62,8 +62,10 @@ class VulkanInstance {
     void setMustRecreateSwapchain() {
         _mustRecreateSwapchain = true;
     }
+    void updateUniformBuffer(uint32_t currentImage);
 
   private:
+    VkDevice _device();
     VmaAllocator _createAllocator();
     std::vector<const char*> _getRequiredExtensions();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
@@ -72,6 +74,8 @@ class VulkanInstance {
     VkSurfaceKHR _createSurface(GLFWwindow* window);
     SwapchainParts _createSwapChain();
     std::vector<VkImageView> _createImageViews();
+    VkDescriptorSetLayout _createDescriptorSetLayout();
+    std::vector<VkDescriptorSet> _createDescriptorSets();
     PipelineParts _createGraphicsPipeline();
     VkShaderModule _createShaderModule(const std::string& path);
     VkRenderPass _createRenderPass();
@@ -81,6 +85,8 @@ class VulkanInstance {
     std::vector<SyncObject> _createSyncObjects();
     Buffer _createVertexBuffer();
     Buffer _createIndexBuffer();
+    std::vector<VulkanInstance::Buffer> _createUniformBuffers();
+    VkDescriptorPool _createDescriptorPool();
     template <class T>
     VulkanInstance::Buffer
     _createTwoLevelBuffer(const std::vector<T>& sceneData,
@@ -97,6 +103,7 @@ class VulkanInstance {
     DeviceParts _deviceParts;
     VkSurfaceKHR _surface;
     SwapchainParts _swapchainParts;
+    VkDescriptorSetLayout _descriptorSetLayout;
     PipelineParts _pipelineParts;
     std::vector<VkImageView> _imageViews;
     VkRenderPass _renderPass;
@@ -108,6 +115,9 @@ class VulkanInstance {
     bool _mustRecreateSwapchain = false;
     Buffer _vertexBuffer;
     Buffer _indexBuffer;
+    std::vector<Buffer> _uniformBuffers;
+    VkDescriptorPool _descriptorPool;
+    std::vector<VkDescriptorSet> _descriptorSets;
 
     scene::Scene _scene;
 };
