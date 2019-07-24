@@ -9,6 +9,7 @@
 #include <tuple>
 #include <vector>
 
+#include "game.hpp"
 #include "scene.hpp"
 #include "swapchain.hpp"
 #include "vk_mem_alloc.h"
@@ -35,7 +36,7 @@ class Instance {
     };
 
   public:
-    Instance(const app::Window& appWindow);
+    Instance(const app::Window& appWindow, Game& game);
     ~Instance();
 
     bool checkValidationLayerSupport();
@@ -50,6 +51,8 @@ class Instance {
     VmaAllocator allocator();
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
+
+    Game& game;
 
   private:
     VmaAllocator _createAllocator();
@@ -76,8 +79,6 @@ class Instance {
     std::vector<SyncObject> _syncObjects;
     std::size_t currentFrame = 0;
     bool _mustRecreateSwapchain = false;
-
-    scene::Scene _scene;
 
     friend struct Swapchain;
 };

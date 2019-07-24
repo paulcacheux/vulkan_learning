@@ -13,8 +13,8 @@
 
 namespace vulkan {
 
-Instance::Instance(const app::Window& appWindow)
-    : _appWindow(appWindow), _swapchain(this) {
+Instance::Instance(const app::Window& appWindow, Game& game)
+    : game(game), _appWindow(appWindow), _swapchain(this) {
     if (utils::enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error(
             "validation layer requested, but not available");
@@ -188,11 +188,9 @@ void Instance::updateUniformBuffer(uint32_t currentImage) {
                      .count();
 
     scene::UniformBufferObject ubo;
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-                            glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view
-        = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                      glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = game.getScene().getModelMatrix(time);
+    ubo.view = game.getCamera().getViewMatrix();
+
     ubo.proj = glm::perspective(
         glm::radians(45.0f),
         _swapchain.extent.width / (float)_swapchain.extent.height, 0.1f, 10.0f);

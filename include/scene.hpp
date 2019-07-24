@@ -20,7 +20,7 @@ struct UniformBufferObject {
 };
 
 struct Vertex {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
 
     static VkVertexInputBindingDescription getBindingDescription();
@@ -32,6 +32,24 @@ struct Scene {
     Scene();
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
+
+    glm::mat4 getModelMatrix(float time) const;
+    void addTriangle(std::array<uint16_t, 3> id);
+};
+
+struct Camera {
+    Camera();
+    void moveLeft(float offset);
+    void moveRight(float offset);
+    void moveUp(float offset);
+    void moveDown(float offset);
+    void moveFront(float offset);
+    void moveBack(float offset);
+    void updateEyeAndCenter(glm::vec3 offset);
+    glm::mat4 getViewMatrix() const;
+
+    glm::vec3 eye;
+    glm::vec3 center;
 };
 
 } // namespace scene

@@ -289,8 +289,6 @@ std::tuple<VkPipelineLayout, VkPipeline> Swapchain::_createGraphicsPipeline() {
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
@@ -433,12 +431,12 @@ VkCommandPool Swapchain::_createCommandPool() {
 }
 
 Buffer Swapchain::_createVertexBuffer() {
-    return instance->_createTwoLevelBuffer(instance->_scene.vertices,
+    return instance->_createTwoLevelBuffer(instance->game.getScene().vertices,
                                            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 Buffer Swapchain::_createIndexBuffer() {
-    return instance->_createTwoLevelBuffer(instance->_scene.indices,
+    return instance->_createTwoLevelBuffer(instance->game.getScene().indices,
                                            VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
@@ -592,9 +590,10 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(buffers[i],
-                         static_cast<uint32_t>(instance->_scene.indices.size()),
-                         1, 0, 0, 0);
+        vkCmdDrawIndexed(
+            buffers[i],
+            static_cast<uint32_t>(instance->game.getScene().indices.size()), 1,
+            0, 0, 0);
 
         vkCmdEndRenderPass(buffers[i]);
 

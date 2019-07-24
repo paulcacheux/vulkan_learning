@@ -9,6 +9,8 @@
 
 #include "vulkan/instance.hpp"
 
+class Game;
+
 namespace app {
 class WindowContext {
   public:
@@ -27,7 +29,8 @@ class Window {
     bool shouldClose() const;
     std::pair<int, int> getSize() const;
     std::pair<int, int> getFrameBufferSize() const;
-    void linkResizeToVulkan(vulkan::Instance* instance);
+    void linkToInstance(vulkan::Instance* instance);
+    void setupResizeCallback();
     void waitUntilUnminimized() const;
 
   private:

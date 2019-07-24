@@ -1,5 +1,9 @@
 #include "window.hpp"
 
+#include <iostream>
+
+#include "game.hpp"
+
 namespace app {
 
 WindowContext::WindowContext() {
@@ -48,8 +52,11 @@ std::pair<int, int> Window::getFrameBufferSize() const {
     return std::make_pair(width, height);
 }
 
-void Window::linkResizeToVulkan(vulkan::Instance* instance) {
+void Window::linkToInstance(vulkan::Instance* instance) {
     glfwSetWindowUserPointer(_window, instance);
+}
+
+void Window::setupResizeCallback() {
     glfwSetFramebufferSizeCallback(_window, vulkan_resize_callback);
 }
 
@@ -62,15 +69,39 @@ void Window::waitUntilUnminimized() const {
 }
 
 void vulkan_resize_callback(GLFWwindow* window, int, int) {
-    auto app
+    auto instance
         = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
-    app->setMustRecreateSwapchain();
+    instance->setMustRecreateSwapchain();
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action,
                   int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+    bool pressed;
+    if (action == GLFW_PRESS) {
+        pressed = true;
+    } else if (action == GLFW_RELEASE) {
+        pressed = false;
+    } else {
+        return;
+    }
+
+    auto instance
+        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
+
+    if (key == GLFW_KEY_ESCAPE && pressed) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    } else if (key == GLFW_KEY_LEFT_SHIFT) {
+        instance->game.setInputState(InputState::Down, pressed);
+    } else if (key == GLFW_KEY_SPACE) {
+        instance->game.setInputState(InputState::Up, pressed);
+    } else if (key == GLFW_KEY_W) {
+        instance->game.setInputState(InputState::Front, pressed);
+    } else if (key == GLFW_KEY_A) {
+        instance->game.setInputState(InputState::Left, pressed);
+    } else if (key == GLFW_KEY_S) {
+        instance->game.setInputState(InputState::Back, pressed);
+    } else if (key == GLFW_KEY_D) {
+        instance->game.setInputState(InputState::Right, pressed);
     }
 }
 
