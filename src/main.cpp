@@ -6,6 +6,7 @@
 #include <chrono>
 #include <exception>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #include "game.hpp"
@@ -30,17 +31,30 @@ int main() {
         window.linkToInstance(&instance);
         window.setupResizeCallback();
 
+        auto maxFps = 144;
+        auto frameMinDuration
+            = std::chrono::duration<float, std::chrono::seconds::period>(
+                1 / (float)maxFps);
+
         auto lastTime = std::chrono::high_resolution_clock::now();
         while (!window.shouldClose()) {
             auto currentTime = std::chrono::high_resolution_clock::now();
-            float dt
+            auto dt
                 = std::chrono::duration<float, std::chrono::seconds::period>(
-                      currentTime - lastTime)
-                      .count();
+                    currentTime - lastTime);
+            if (dt < frameMinDuration) {
+                auto diff = frameMinDuration - dt;
+                std::this_thread::sleep_for(diff);
+                continue;
+            }
+
             lastTime = currentTime;
+            float dtf = dt.count();
+
+            std::cout << "FPS: " << 1 / dtf << "\n";
 
             context.pollEvents();
-            game.update(dt);
+            game.update(dtf);
             instance.drawFrame();
         }
         instance.deviceWaitIdle();
