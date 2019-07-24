@@ -8,7 +8,7 @@
 #include <set>
 #include <stdexcept>
 
-#include "utils.hpp"
+#include "vulkan/utils.hpp"
 #include "window.hpp"
 
 namespace vulkan {
@@ -60,9 +60,9 @@ Instance::Instance(const app::Window& appWindow)
 }
 
 Instance::~Instance() {
-    cleanupSwapchain();
+    _swapchain.destroy();
 
-    _swapchain.clean();
+    vmaDestroyAllocator(_allocator);
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(device(), pair.imageAvailable, nullptr);
@@ -169,10 +169,6 @@ void Instance::drawFrame() {
 
 void Instance::deviceWaitIdle() {
     vkDeviceWaitIdle(device());
-}
-
-void Instance::cleanupSwapchain() {
-    // TODO
 }
 
 void Instance::recreateSwapchain() {

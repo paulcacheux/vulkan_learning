@@ -1,6 +1,6 @@
 #include "vulkan/swapchain.hpp"
-#include "utils.hpp"
 #include "vulkan/instance.hpp"
+#include "vulkan/utils.hpp"
 #include "window.hpp"
 
 namespace vulkan {
@@ -13,41 +13,24 @@ Swapchain::Swapchain(Instance* instance) : instance(instance) {
 }
 
 void Swapchain::init() {
-    std::tie(swapchain, format, extent, images) = _createSwapChain();
-    imageViews = _createImageViews();
-    renderPass = _createRenderPass();
-    descriptorSetLayout = _createDescriptorSetLayout();
-    std::tie(layout, pipeline) = _createGraphicsPipeline();
-    swapchainFramebuffers = _createFramebuffers();
     commandPool = _createCommandPool();
     vertexBuffer = _createVertexBuffer();
     indexBuffer = _createIndexBuffer();
-    uniformBuffers = _createUniformBuffers();
-    descriptorPool = _createDescriptorPool();
-    descriptorSets = _createDescriptorSets();
-    commandBuffers = _createCommandBuffers();
+    descriptorSetLayout = _createDescriptorSetLayout();
+
+    _innerInit();
 }
 
 void Swapchain::recreate() {
     _cleanup();
-
-    std::tie(swapchain, format, extent, images) = _createSwapChain();
-    imageViews = _createImageViews();
-    renderPass = _createRenderPass();
-    std::tie(layout, pipeline) = _createGraphicsPipeline();
-    swapchainFramebuffers = _createFramebuffers();
-    uniformBuffers = _createUniformBuffers();
-    descriptorPool = _createDescriptorPool();
-    descriptorSets = _createDescriptorSets();
-    commandBuffers = _createCommandBuffers();
+    _innerInit();
 }
 
-void Swapchain::clean() {
+void Swapchain::destroy() {
     _cleanup();
 
     vertexBuffer.destroy(instance->_allocator);
     indexBuffer.destroy(instance->_allocator);
-    vmaDestroyAllocator(instance->_allocator);
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
     vkDestroyCommandPool(device(), commandPool, nullptr);
@@ -55,6 +38,18 @@ void Swapchain::clean() {
 
 VkDevice Swapchain::device() {
     return instance->device();
+}
+
+void Swapchain::_innerInit() {
+    std::tie(swapchain, format, extent, images) = _createSwapChain();
+    imageViews = _createImageViews();
+    renderPass = _createRenderPass();
+    std::tie(layout, pipeline) = _createGraphicsPipeline();
+    swapchainFramebuffers = _createFramebuffers();
+    uniformBuffers = _createUniformBuffers();
+    descriptorPool = _createDescriptorPool();
+    descriptorSets = _createDescriptorSets();
+    commandBuffers = _createCommandBuffers();
 }
 
 void Swapchain::_cleanup() {

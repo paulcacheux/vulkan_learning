@@ -24,7 +24,7 @@ struct Swapchain {
     Swapchain(Instance* instance);
     void init();
     void recreate();
-    void clean();
+    void destroy();
     VkDevice device();
 
     Instance* instance;
@@ -52,6 +52,7 @@ struct Swapchain {
     std::vector<VkCommandBuffer> commandBuffers;
 
   private:
+    void _innerInit();
     void _cleanup();
     std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
     _createSwapChain();

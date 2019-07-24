@@ -41,7 +41,6 @@ class Instance {
     bool checkValidationLayerSupport();
     void drawFrame();
     void deviceWaitIdle();
-    void cleanupSwapchain();
     void recreateSwapchain();
     void setMustRecreateSwapchain() {
         _mustRecreateSwapchain = true;
