@@ -9,9 +9,9 @@
 
 namespace vulkan {
 
-void Swapchain::init(Device* device, VkCommandPool commandPool,
-                     BufferManager* bufferManager, Game* game,
-                     const app::Window& appWindow) {
+void Swapchain::preInit(Device* device, VkCommandPool commandPool,
+                        BufferManager* bufferManager, Game* game,
+                        const app::Window& appWindow) {
     _commandPool = commandPool;
     _device = device;
     _bufferManager = bufferManager;
@@ -22,7 +22,7 @@ void Swapchain::init(Device* device, VkCommandPool commandPool,
     _innerInitFirst(appWindow);
 }
 
-void Swapchain::completeInit() {
+void Swapchain::finishInit() {
     _innerInitSecond();
 }
 

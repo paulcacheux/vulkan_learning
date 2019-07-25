@@ -23,10 +23,10 @@ class BufferManager;
 
 struct Swapchain {
     Swapchain() = default;
-    void init(Device* instance, VkCommandPool commandPool,
-              BufferManager* bufferManager, Game* game,
-              const app::Window& appWindow);
-    void completeInit();
+    void preInit(Device* instance, VkCommandPool commandPool,
+                 BufferManager* bufferManager, Game* game,
+                 const app::Window& appWindow);
+    void finishInit();
     void recreate(const app::Window& appWindow);
     void destroy();
     VkDevice device();

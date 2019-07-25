@@ -57,10 +57,10 @@ Instance::Instance(const app::Window& appWindow, Game& game)
     _commandPool = _createCommandPool();
     _bufferManager = std::make_unique<BufferManager>(
         &_device, _allocator, _commandPool, game.getScene());
-    _swapchain.init(&_device, _commandPool, _bufferManager.get(), &game,
-                    appWindow);
+    _swapchain.preInit(&_device, _commandPool, _bufferManager.get(), &game,
+                       appWindow);
     _bufferManager->recreateUniformBuffers(_swapchain.imageViews.size());
-    _swapchain.completeInit();
+    _swapchain.finishInit();
 
     _syncObjects = _createSyncObjects();
 }
@@ -261,17 +261,19 @@ std::vector<const char*> Instance::_getRequiredExtensions() {
 }
 
 VkDebugUtilsMessengerEXT Instance::_setupDebugMessenger() {
-    VkDebugUtilsMessengerEXT debugMessenger;
     if (utils::enableValidationLayers) {
         auto createInfo = utils::makeDebugMessengerCreateInfo();
+        VkDebugUtilsMessengerEXT debugMessenger;
 
         if (utils::CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr,
                                                 &debugMessenger)
             != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger");
         }
+        return debugMessenger;
+    } else {
+        return nullptr;
     }
-    return debugMessenger;
 }
 
 std::vector<Instance::SyncObject> Instance::_createSyncObjects() {
