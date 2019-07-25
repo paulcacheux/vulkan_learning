@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -49,6 +50,7 @@ class Instance {
 
   private:
     VmaAllocator _createAllocator();
+    VkCommandPool _createCommandPool();
     std::vector<const char*> _getRequiredExtensions();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
     std::vector<SyncObject> _createSyncObjects();
@@ -59,6 +61,8 @@ class Instance {
     VkDebugUtilsMessengerEXT _debugMessenger;
     Device _device;
     Swapchain _swapchain;
+    VkCommandPool _commandPool;
+    std::unique_ptr<BufferManager> _bufferManager;
     std::vector<SyncObject> _syncObjects;
     std::size_t currentFrame = 0;
     bool _mustRecreateSwapchain = false;

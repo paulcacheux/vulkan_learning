@@ -1,56 +1,57 @@
 #include "vulkan/swapchain.hpp"
 #include "game.hpp"
+#include "vulkan/buffer_manager.hpp"
 #include "vulkan/device.hpp"
 #include "vulkan/utils.hpp"
 #include "window.hpp"
 
+#include <iostream>
+
 namespace vulkan {
 
-void Buffer::destroy(VmaAllocator allocator) {
-    vmaDestroyBuffer(allocator, buffer, allocation);
-}
-
-void Swapchain::init(Device* device, VmaAllocator allocator, Game* game,
+void Swapchain::init(Device* device, VkCommandPool commandPool,
+                     BufferManager* bufferManager, Game* game,
                      const app::Window& appWindow) {
+    _commandPool = commandPool;
     _device = device;
-    _allocator = allocator;
+    _bufferManager = bufferManager;
     _game = game;
 
-    commandPool = _createCommandPool();
-    vertexBuffer = _createVertexBuffer();
-    indexBuffer = _createIndexBuffer();
     descriptorSetLayout = _createDescriptorSetLayout();
 
-    _innerInit(appWindow);
+    _innerInitFirst(appWindow);
+}
+
+void Swapchain::completeInit() {
+    _innerInitSecond();
 }
 
 void Swapchain::recreate(const app::Window& appWindow) {
     _cleanup();
-    _innerInit(appWindow);
+    _innerInitFirst(appWindow);
+    _innerInitSecond();
 }
 
 void Swapchain::destroy() {
     _cleanup();
 
-    vertexBuffer.destroy(_allocator);
-    indexBuffer.destroy(_allocator);
-
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
-    vkDestroyCommandPool(device(), commandPool, nullptr);
 }
 
 VkDevice Swapchain::device() {
     return _device->device;
 }
 
-void Swapchain::_innerInit(const app::Window& appWindow) {
+void Swapchain::_innerInitFirst(const app::Window& appWindow) {
     std::tie(swapchain, format, extent, images) = _createSwapChain(appWindow);
     imageViews = _createImageViews();
     renderPass = _createRenderPass();
     std::tie(layout, pipeline) = _createGraphicsPipeline();
     swapchainFramebuffers = _createFramebuffers();
-    uniformBuffers = _createUniformBuffers();
     descriptorPool = _createDescriptorPool();
+}
+
+void Swapchain::_innerInitSecond() {
     descriptorSets = _createDescriptorSets();
     commandBuffers = _createCommandBuffers();
 }
@@ -64,13 +65,9 @@ void Swapchain::_cleanup() {
         vkDestroyImageView(device(), imageView, nullptr);
     }
 
-    for (auto& uniformBuffer : uniformBuffers) {
-        uniformBuffer.destroy(_allocator);
-    }
-
     vkDestroyDescriptorPool(device(), descriptorPool, nullptr);
 
-    vkFreeCommandBuffers(device(), commandPool,
+    vkFreeCommandBuffers(device(), _commandPool,
                          static_cast<uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 
@@ -415,50 +412,6 @@ std::vector<VkFramebuffer> Swapchain::_createFramebuffers() {
     return framebuffers;
 }
 
-VkCommandPool Swapchain::_createCommandPool() {
-    auto queueFamilyIndices
-        = utils::findQueueFamilies(_device->physicalDevice, _device->surface);
-
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-    poolInfo.flags = 0;
-
-    VkCommandPool commandPool;
-    if (vkCreateCommandPool(device(), &poolInfo, nullptr, &commandPool)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create command pool");
-    }
-
-    return commandPool;
-}
-
-Buffer Swapchain::_createVertexBuffer() {
-    return _createTwoLevelBuffer(_game->getScene().vertices,
-                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-}
-
-Buffer Swapchain::_createIndexBuffer() {
-    return _createTwoLevelBuffer(_game->getScene().indices,
-                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-}
-
-std::vector<Buffer> Swapchain::_createUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(scene::UniformBufferObject);
-    auto size = images.size();
-    std::vector<Buffer> buffers;
-    buffers.reserve(size);
-
-    for (std::size_t i = 0; i < size; ++i) {
-        auto buffer
-            = _createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                            VMA_MEMORY_USAGE_CPU_TO_GPU);
-        buffers.push_back(buffer);
-    }
-
-    return buffers;
-}
-
 VkDescriptorPool Swapchain::_createDescriptorPool() {
     VkDescriptorPoolSize poolSize = {};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -520,7 +473,7 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
 
     for (std::size_t i = 0; i < size; ++i) {
         VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = uniformBuffers[i].buffer;
+        bufferInfo.buffer = _bufferManager->uniformBuffers[i].buffer;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(scene::UniformBufferObject);
 
@@ -548,7 +501,7 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = _commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
 
@@ -585,10 +538,10 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         vkCmdBindPipeline(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline);
 
-        VkBuffer vertexBuffers[] = {vertexBuffer.buffer};
+        VkBuffer vertexBuffers[] = {_bufferManager->vertexBuffer.buffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(buffers[i], indexBuffer.buffer, 0,
+        vkCmdBindIndexBuffer(buffers[i], _bufferManager->indexBuffer.buffer, 0,
                              VK_INDEX_TYPE_UINT16);
         vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
@@ -623,61 +576,5 @@ VkShaderModule Swapchain::_createShaderModule(const std::string& path) {
 
     return module;
 }
-
-Buffer Swapchain::_createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                                VmaMemoryUsage vmaUsage) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = vmaUsage;
-
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
-                    nullptr);
-    return Buffer{buffer, allocation};
-}
-
-void Swapchain::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                            VkDeviceSize size) {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool
-        = commandPool; // TODO: maybe use a different specific command pool
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device(), &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(_device->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(_device->graphicsQueue);
-
-    vkFreeCommandBuffers(device(), commandPool, 1, &commandBuffer);
-}
-
 } // namespace vulkan
 

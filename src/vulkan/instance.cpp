@@ -8,6 +8,7 @@
 #include <set>
 #include <stdexcept>
 
+#include "vulkan/buffer_manager.hpp"
 #include "vulkan/utils.hpp"
 #include "window.hpp"
 
@@ -52,13 +53,23 @@ Instance::Instance(const app::Window& appWindow, Game& game)
     _debugMessenger = _setupDebugMessenger();
     _device.init(appWindow.inner(), _instance);
     _allocator = _createAllocator();
-    _swapchain.init(&_device, _allocator, &game, appWindow);
+
+    _commandPool = _createCommandPool();
+    _bufferManager = std::make_unique<BufferManager>(
+        &_device, _allocator, _commandPool, game.getScene());
+    _swapchain.init(&_device, _commandPool, _bufferManager.get(), &game,
+                    appWindow);
+    _bufferManager->recreateUniformBuffers(_swapchain.imageViews.size());
+    _swapchain.completeInit();
 
     _syncObjects = _createSyncObjects();
 }
 
 Instance::~Instance() {
     _swapchain.destroy();
+    vkDestroyCommandPool(device(), _commandPool, nullptr);
+
+    _bufferManager.reset();
 
     vmaDestroyAllocator(_allocator);
 
@@ -175,6 +186,7 @@ void Instance::recreateSwapchain() {
     deviceWaitIdle();
 
     _swapchain.recreate(_appWindow);
+    _bufferManager->recreateUniformBuffers(_swapchain.imageViews.size());
 }
 
 void Instance::updateUniformBuffer(uint32_t currentImage) {
@@ -194,12 +206,7 @@ void Instance::updateUniformBuffer(uint32_t currentImage) {
         _swapchain.extent.width / (float)_swapchain.extent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1; // openGL -> Vulkan conversion
 
-    void* data;
-    vmaMapMemory(_allocator, _swapchain.uniformBuffers[currentImage].allocation,
-                 &data);
-    std::memcpy(data, &ubo, sizeof(ubo));
-    vmaUnmapMemory(_allocator,
-                   _swapchain.uniformBuffers[currentImage].allocation);
+    _bufferManager->updateUniformBuffer(currentImage, ubo);
 }
 
 VkDevice Instance::device() {
@@ -218,6 +225,24 @@ VmaAllocator Instance::_createAllocator() {
     VmaAllocator allocator;
     vmaCreateAllocator(&allocInfo, &allocator);
     return allocator;
+}
+
+VkCommandPool Instance::_createCommandPool() {
+    auto queueFamilyIndices
+        = utils::findQueueFamilies(_device.physicalDevice, _device.surface);
+
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    poolInfo.flags = 0;
+
+    VkCommandPool commandPool;
+    if (vkCreateCommandPool(device(), &poolInfo, nullptr, &commandPool)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create command pool");
+    }
+
+    return commandPool;
 }
 
 std::vector<const char*> Instance::_getRequiredExtensions() {
