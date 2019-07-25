@@ -1,5 +1,6 @@
 #include "vulkan/swapchain.hpp"
-#include "vulkan/instance.hpp"
+#include "game.hpp"
+#include "vulkan/device.hpp"
 #include "vulkan/utils.hpp"
 #include "window.hpp"
 
@@ -9,39 +10,41 @@ void Buffer::destroy(VmaAllocator allocator) {
     vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
-Swapchain::Swapchain(Instance* instance) : instance(instance) {
-}
+void Swapchain::init(Device* device, VmaAllocator allocator, Game* game,
+                     const app::Window& appWindow) {
+    _device = device;
+    _allocator = allocator;
+    _game = game;
 
-void Swapchain::init() {
     commandPool = _createCommandPool();
     vertexBuffer = _createVertexBuffer();
     indexBuffer = _createIndexBuffer();
     descriptorSetLayout = _createDescriptorSetLayout();
 
-    _innerInit();
+    _innerInit(appWindow);
 }
 
-void Swapchain::recreate() {
+void Swapchain::recreate(const app::Window& appWindow) {
     _cleanup();
-    _innerInit();
+    _innerInit(appWindow);
 }
 
 void Swapchain::destroy() {
     _cleanup();
 
-    vertexBuffer.destroy(instance->_allocator);
-    indexBuffer.destroy(instance->_allocator);
+    vertexBuffer.destroy(_allocator);
+    indexBuffer.destroy(_allocator);
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
     vkDestroyCommandPool(device(), commandPool, nullptr);
 }
 
 VkDevice Swapchain::device() {
-    return instance->device();
+    return _device->device;
 }
 
-void Swapchain::_innerInit() {
-    std::tie(swapchain, format, extent, images) = _createSwapChain();
+void Swapchain::_innerInit(const app::Window& appWindow) {
+    std::tie(swapchain, format, extent, images) = _createSwapChain(appWindow);
     imageViews = _createImageViews();
     renderPass = _createRenderPass();
     std::tie(layout, pipeline) = _createGraphicsPipeline();
@@ -62,7 +65,7 @@ void Swapchain::_cleanup() {
     }
 
     for (auto& uniformBuffer : uniformBuffers) {
-        uniformBuffer.destroy(instance->_allocator);
+        uniformBuffer.destroy(_allocator);
     }
 
     vkDestroyDescriptorPool(device(), descriptorPool, nullptr);
@@ -78,15 +81,15 @@ void Swapchain::_cleanup() {
 }
 
 std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
-Swapchain::_createSwapChain() {
+Swapchain::_createSwapChain(const app::Window& appWindow) {
     auto swapChainSupport = utils::querySwapChainSupport(
-        instance->_physicalDevice, instance->_surface);
+        _device->physicalDevice, _device->surface);
     auto surfaceFormat
         = utils::chooseSwapSurfaceFormat(swapChainSupport.formats);
     auto presentMode
         = utils::chooseSwapPresentMode(swapChainSupport.presentModes);
 
-    auto [width, height] = instance->_appWindow.getFrameBufferSize();
+    auto [width, height] = appWindow.getFrameBufferSize();
     auto extent
         = utils::chooseSwapExtent(swapChainSupport.capabilities, width, height);
 
@@ -98,7 +101,7 @@ Swapchain::_createSwapChain() {
 
     VkSwapchainCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = instance->_surface;
+    createInfo.surface = _device->surface;
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -106,8 +109,8 @@ Swapchain::_createSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    auto indices = utils::findQueueFamilies(instance->_physicalDevice,
-                                            instance->_surface);
+    auto indices
+        = utils::findQueueFamilies(_device->physicalDevice, _device->surface);
     uint32_t queueFamilyIndices[]
         = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
@@ -221,8 +224,8 @@ VkRenderPass Swapchain::_createRenderPass() {
 }
 
 std::tuple<VkPipelineLayout, VkPipeline> Swapchain::_createGraphicsPipeline() {
-    auto vertModule = instance->_createShaderModule("shaders/shader.vert.spv");
-    auto fragModule = instance->_createShaderModule("shaders/shader.frag.spv");
+    auto vertModule = _createShaderModule("shaders/shader.vert.spv");
+    auto fragModule = _createShaderModule("shaders/shader.frag.spv");
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
     vertShaderStageInfo.sType
@@ -413,8 +416,8 @@ std::vector<VkFramebuffer> Swapchain::_createFramebuffers() {
 }
 
 VkCommandPool Swapchain::_createCommandPool() {
-    auto queueFamilyIndices = utils::findQueueFamilies(
-        instance->_physicalDevice, instance->_surface);
+    auto queueFamilyIndices
+        = utils::findQueueFamilies(_device->physicalDevice, _device->surface);
 
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -431,13 +434,13 @@ VkCommandPool Swapchain::_createCommandPool() {
 }
 
 Buffer Swapchain::_createVertexBuffer() {
-    return instance->_createTwoLevelBuffer(instance->game.getScene().vertices,
-                                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    return _createTwoLevelBuffer(_game->getScene().vertices,
+                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
 Buffer Swapchain::_createIndexBuffer() {
-    return instance->_createTwoLevelBuffer(instance->game.getScene().indices,
-                                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    return _createTwoLevelBuffer(_game->getScene().indices,
+                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 std::vector<Buffer> Swapchain::_createUniformBuffers() {
@@ -447,9 +450,9 @@ std::vector<Buffer> Swapchain::_createUniformBuffers() {
     buffers.reserve(size);
 
     for (std::size_t i = 0; i < size; ++i) {
-        auto buffer = instance->createBuffer(bufferSize,
-                                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+        auto buffer
+            = _createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                            VMA_MEMORY_USAGE_CPU_TO_GPU);
         buffers.push_back(buffer);
     }
 
@@ -591,9 +594,8 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
 
         vkCmdDrawIndexed(
-            buffers[i],
-            static_cast<uint32_t>(instance->game.getScene().indices.size()), 1,
-            0, 0, 0);
+            buffers[i], static_cast<uint32_t>(_game->getScene().indices.size()),
+            1, 0, 0, 0);
 
         vkCmdEndRenderPass(buffers[i]);
 
@@ -603,6 +605,78 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
     }
 
     return buffers;
+}
+
+VkShaderModule Swapchain::_createShaderModule(const std::string& path) {
+    auto code = utils::readFile(path);
+
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+    VkShaderModule module;
+    if (vkCreateShaderModule(device(), &createInfo, nullptr, &module)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create shader module");
+    }
+
+    return module;
+}
+
+Buffer Swapchain::_createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                                VmaMemoryUsage vmaUsage) {
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = vmaUsage;
+
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
+                    nullptr);
+    return Buffer{buffer, allocation};
+}
+
+void Swapchain::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
+                            VkDeviceSize size) {
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool
+        = commandPool; // TODO: maybe use a different specific command pool
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(_device->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(_device->graphicsQueue);
+
+    vkFreeCommandBuffers(device(), commandPool, 1, &commandBuffer);
 }
 
 } // namespace vulkan

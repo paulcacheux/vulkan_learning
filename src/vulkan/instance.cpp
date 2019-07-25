@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstring>
+// #include <cstring>
 #include <iostream>
 #include <map>
 #include <set>
@@ -14,7 +14,7 @@
 namespace vulkan {
 
 Instance::Instance(const app::Window& appWindow, Game& game)
-    : game(game), _appWindow(appWindow), _swapchain(this) {
+    : game(game), _appWindow(appWindow) {
     if (utils::enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error(
             "validation layer requested, but not available");
@@ -50,11 +50,9 @@ Instance::Instance(const app::Window& appWindow, Game& game)
     }
 
     _debugMessenger = _setupDebugMessenger();
-    _surface = _createSurface(appWindow.inner());
-    _physicalDevice = _pickPhysicalDevice();
-    _deviceParts = _createLogicalDevice();
+    _device.init(appWindow.inner(), _instance);
     _allocator = _createAllocator();
-    _swapchain.init();
+    _swapchain.init(&_device, _allocator, &game, appWindow);
 
     _syncObjects = _createSyncObjects();
 }
@@ -70,11 +68,11 @@ Instance::~Instance() {
         vkDestroyFence(device(), pair.inFlight, nullptr);
     }
 
-    vkDestroyDevice(device(), nullptr);
     if (utils::enableValidationLayers) {
         utils::DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger,
                                              nullptr);
     }
+    _device.destroy();
     vkDestroyInstance(_instance, nullptr);
 }
 
@@ -138,7 +136,7 @@ void Instance::drawFrame() {
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     vkResetFences(device(), 1, &currentSync.inFlight);
-    if (vkQueueSubmit(_deviceParts.graphicsQueue, 1, &submitInfo,
+    if (vkQueueSubmit(_device.graphicsQueue, 1, &submitInfo,
                       currentSync.inFlight)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer");
@@ -156,7 +154,7 @@ void Instance::drawFrame() {
 
     presentInfo.pResults = nullptr;
 
-    auto presRes = vkQueuePresentKHR(_deviceParts.presentQueue, &presentInfo);
+    auto presRes = vkQueuePresentKHR(_device.presentQueue, &presentInfo);
     if (presRes == VK_ERROR_OUT_OF_DATE_KHR || _mustRecreateSwapchain) {
         _mustRecreateSwapchain = false;
         recreateSwapchain();
@@ -176,7 +174,7 @@ void Instance::recreateSwapchain() {
 
     deviceWaitIdle();
 
-    _swapchain.recreate();
+    _swapchain.recreate(_appWindow);
 }
 
 void Instance::updateUniformBuffer(uint32_t currentImage) {
@@ -205,34 +203,16 @@ void Instance::updateUniformBuffer(uint32_t currentImage) {
 }
 
 VkDevice Instance::device() {
-    return _deviceParts.device;
+    return _device.device;
 }
 
 VmaAllocator Instance::allocator() {
     return _allocator;
 }
 
-Buffer Instance::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                              VmaMemoryUsage vmaUsage) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = vmaUsage;
-
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
-                    nullptr);
-    return Buffer{buffer, allocation};
-}
-
 VmaAllocator Instance::_createAllocator() {
     VmaAllocatorCreateInfo allocInfo = {};
-    allocInfo.physicalDevice = _physicalDevice;
+    allocInfo.physicalDevice = _device.physicalDevice;
     allocInfo.device = device();
 
     VmaAllocator allocator;
@@ -269,112 +249,6 @@ VkDebugUtilsMessengerEXT Instance::_setupDebugMessenger() {
     return debugMessenger;
 }
 
-VkPhysicalDevice Instance::_pickPhysicalDevice() {
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr);
-
-    if (deviceCount == 0) {
-        throw std::runtime_error("failed to find GPUs with Vulkan support");
-    }
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
-
-    std::multimap<int, VkPhysicalDevice> candidates;
-
-    for (const auto& device : devices) {
-        int score = utils::rateDeviceSuitability(device, _surface);
-        candidates.insert(std::make_pair(score, device));
-    }
-
-    auto it = candidates.rbegin();
-    if (it->first > 0) {
-        return it->second;
-    } else {
-        throw std::runtime_error("failed to find a suitable GPU");
-    }
-}
-
-Instance::DeviceParts Instance::_createLogicalDevice() {
-    utils::QueueFamilyIndices indices
-        = utils::findQueueFamilies(_physicalDevice, _surface);
-
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {
-        indices.graphicsFamily.value(),
-        indices.presentFamily.value(),
-    };
-
-    float queuePriority = 1.0f;
-    for (auto queueFamily : uniqueQueueFamilies) {
-        VkDeviceQueueCreateInfo queueCreateInfo = {};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
-        queueCreateInfo.queueCount = 1;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
-
-    VkPhysicalDeviceFeatures deviceFeatures = {};
-    VkDeviceCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount
-        = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.pEnabledFeatures = &deviceFeatures;
-
-    createInfo.enabledExtensionCount
-        = static_cast<uint32_t>(utils::deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = utils::deviceExtensions.data();
-
-    if (utils::enableValidationLayers) {
-        createInfo.enabledLayerCount
-            = static_cast<uint32_t>(utils::validationLayers.size());
-        createInfo.ppEnabledLayerNames = utils::validationLayers.data();
-    } else {
-        createInfo.enabledLayerCount = 0;
-    }
-
-    VkDevice device;
-    if (vkCreateDevice(_physicalDevice, &createInfo, nullptr, &device)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create logical device");
-    }
-
-    VkQueue graphicsQueue;
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-    VkQueue presentQueue;
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
-
-    return DeviceParts{device, graphicsQueue, presentQueue};
-}
-
-VkSurfaceKHR Instance::_createSurface(GLFWwindow* window) {
-    VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(_instance, window, nullptr, &surface)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create window surface");
-    }
-    return surface;
-}
-
-VkShaderModule Instance::_createShaderModule(const std::string& path) {
-    auto code = utils::readFile(path);
-
-    VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-    VkShaderModule module;
-    if (vkCreateShaderModule(device(), &createInfo, nullptr, &module)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create shader module");
-    }
-
-    return module;
-}
-
 std::vector<Instance::SyncObject> Instance::_createSyncObjects() {
     std::vector<SyncObject> objects;
     objects.reserve(MAX_FRAMES_IN_FLIGHT);
@@ -400,44 +274,6 @@ std::vector<Instance::SyncObject> Instance::_createSyncObjects() {
     }
 
     return objects;
-}
-
-void Instance::_copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                           VkDeviceSize size) {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool
-        = _swapchain
-              .commandPool; // TODO: maybe use a different specific command pool
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device(), &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion = {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(_deviceParts.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(_deviceParts.graphicsQueue);
-
-    vkFreeCommandBuffers(device(), _swapchain.commandPool, 1, &commandBuffer);
 }
 
 } // namespace vulkan

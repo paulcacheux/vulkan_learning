@@ -4,14 +4,21 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <cstring>
 #include <tuple>
 #include <vector>
 
 #include "vk_mem_alloc.h"
 
+class Game;
+
+namespace app {
+class Window;
+}
+
 namespace vulkan {
 
-class Instance;
+class Device;
 
 struct Buffer {
     VkBuffer buffer;
@@ -21,13 +28,12 @@ struct Buffer {
 };
 
 struct Swapchain {
-    Swapchain(Instance* instance);
-    void init();
-    void recreate();
+    Swapchain() = default;
+    void init(Device* instance, VmaAllocator allocator, Game* game,
+              const app::Window& appWindow);
+    void recreate(const app::Window& appWindow);
     void destroy();
     VkDevice device();
-
-    Instance* instance;
 
     VkSwapchainKHR swapchain;
     VkFormat format;
@@ -52,10 +58,10 @@ struct Swapchain {
     std::vector<VkCommandBuffer> commandBuffers;
 
   private:
-    void _innerInit();
+    void _innerInit(const app::Window& appWindow);
     void _cleanup();
     std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
-    _createSwapChain();
+    _createSwapChain(const app::Window& appWindow);
     std::vector<VkImageView> _createImageViews();
     VkRenderPass _createRenderPass();
     std::tuple<VkPipelineLayout, VkPipeline> _createGraphicsPipeline();
@@ -68,7 +74,45 @@ struct Swapchain {
     VkDescriptorSetLayout _createDescriptorSetLayout();
     std::vector<VkDescriptorSet> _createDescriptorSets();
     std::vector<VkCommandBuffer> _createCommandBuffers();
+    VkShaderModule _createShaderModule(const std::string& path);
+
+    // TODO extract this in a separate class
+    Buffer _createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                         VmaMemoryUsage vmaUsage);
+    template <class T>
+    Buffer _createTwoLevelBuffer(const std::vector<T>& sceneData,
+                                 VkBufferUsageFlags addUsage);
+    void _copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    // ENDTODO
+
+    Device* _device;
+    VmaAllocator _allocator;
+    Game* _game;
 };
+
+template <class T>
+Buffer Swapchain::_createTwoLevelBuffer(const std::vector<T>& sceneData,
+                                        VkBufferUsageFlags addUsage) {
+    auto size = sizeof(T) * sceneData.size();
+
+    Buffer stagingBuffer = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                         VMA_MEMORY_USAGE_CPU_ONLY);
+
+    void* data;
+    vmaMapMemory(_allocator, stagingBuffer.allocation, &data);
+    std::memcpy(data, sceneData.data(), static_cast<std::size_t>(size));
+    vmaUnmapMemory(_allocator, stagingBuffer.allocation);
+
+    auto buffer
+        = _createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | addUsage,
+                        VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    _copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
+
+    stagingBuffer.destroy(_allocator);
+
+    return buffer;
+}
 
 } // namespace vulkan
 
