@@ -57,18 +57,17 @@ Instance::Instance(const app::Window& appWindow, Game& game)
     _commandPool = _createCommandPool();
     _bufferManager = std::make_unique<BufferManager>(
         &_device, _allocator, _commandPool, game.getScene());
-    _swapchain.preInit(&_device, _commandPool, _bufferManager.get(), &game,
-                       appWindow);
-    _bufferManager->recreateUniformBuffers(_swapchain.imageViews.size());
-    _swapchain.finishInit();
+
+    auto [width, height] = appWindow.getFrameBufferSize();
+    _swapchain = std::make_unique<Swapchain>(
+        &_device, _commandPool, _bufferManager.get(), &game, width, height);
 
     _syncObjects = _createSyncObjects();
 }
 
 Instance::~Instance() {
-    _swapchain.destroy();
+    _swapchain.reset();
     vkDestroyCommandPool(device(), _commandPool, nullptr);
-
     _bufferManager.reset();
 
     vmaDestroyAllocator(_allocator);
@@ -116,7 +115,7 @@ void Instance::drawFrame() {
 
     uint32_t imageIndex;
     auto acqRes = vkAcquireNextImageKHR(
-        device(), _swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
+        device(), _swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
         currentSync.imageAvailable, VK_NULL_HANDLE, &imageIndex);
 
     if (acqRes == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -140,7 +139,7 @@ void Instance::drawFrame() {
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &_swapchain.commandBuffers[imageIndex];
+    submitInfo.pCommandBuffers = &_swapchain->commandBuffers[imageIndex];
 
     VkSemaphore signalSemaphores[] = {currentSync.renderFinished};
     submitInfo.signalSemaphoreCount = 1;
@@ -158,7 +157,7 @@ void Instance::drawFrame() {
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapchains[] = {_swapchain.swapchain};
+    VkSwapchainKHR swapchains[] = {_swapchain->swapchain};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapchains;
     presentInfo.pImageIndices = &imageIndex;
@@ -185,8 +184,8 @@ void Instance::recreateSwapchain() {
 
     deviceWaitIdle();
 
-    _swapchain.recreate(_appWindow);
-    _bufferManager->recreateUniformBuffers(_swapchain.imageViews.size());
+    auto [width, height] = _appWindow.getFrameBufferSize();
+    _swapchain->recreate(width, height);
 }
 
 void Instance::updateUniformBuffer(uint32_t currentImage) {
@@ -201,12 +200,13 @@ void Instance::updateUniformBuffer(uint32_t currentImage) {
     ubo.model = game.getScene().getModelMatrix(time);
     ubo.view = game.getCamera().getViewMatrix();
 
-    ubo.proj = glm::perspective(
-        glm::radians(45.0f),
-        _swapchain.extent.width / (float)_swapchain.extent.height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f),
+                                _swapchain->extent.width
+                                    / (float)_swapchain->extent.height,
+                                0.1f, 10.0f);
     ubo.proj[1][1] *= -1; // openGL -> Vulkan conversion
 
-    _bufferManager->updateUniformBuffer(currentImage, ubo);
+    _swapchain->updateUniformBuffer(currentImage, ubo);
 }
 
 VkDevice Instance::device() {

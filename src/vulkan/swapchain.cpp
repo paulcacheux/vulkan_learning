@@ -9,49 +9,59 @@
 
 namespace vulkan {
 
-void Swapchain::preInit(Device* device, VkCommandPool commandPool,
-                        BufferManager* bufferManager, Game* game,
-                        const app::Window& appWindow) {
-    _commandPool = commandPool;
-    _device = device;
-    _bufferManager = bufferManager;
-    _game = game;
-
+Swapchain::Swapchain(Device* device, VkCommandPool commandPool,
+                     BufferManager* bufferManager, Game* game, int width,
+                     int height)
+    : _commandPool(commandPool), _device(device), _game(game),
+      _bufferManager(bufferManager) {
     descriptorSetLayout = _createDescriptorSetLayout();
 
-    _innerInitFirst(appWindow);
+    _innerInit(width, height);
 }
 
-void Swapchain::finishInit() {
-    _innerInitSecond();
-}
-
-void Swapchain::recreate(const app::Window& appWindow) {
-    _cleanup();
-    _innerInitFirst(appWindow);
-    _innerInitSecond();
-}
-
-void Swapchain::destroy() {
+Swapchain::~Swapchain() {
     _cleanup();
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
+    for (auto& uniformBuffer : uniformBuffers) {
+        _bufferManager->destroyBuffer(uniformBuffer);
+    }
+}
+
+void Swapchain::recreate(int width, int height) {
+    _cleanup();
+    for (auto& uniformBuffer : uniformBuffers) {
+        _bufferManager->destroyBuffer(uniformBuffer);
+    }
+
+    _innerInit(width, height);
+}
+
+void Swapchain::updateUniformBuffer(uint32_t currentImage,
+                                    scene::UniformBufferObject ubo) {
+    void* data;
+    vmaMapMemory(_bufferManager->allocator,
+                 uniformBuffers[currentImage].allocation, &data);
+    std::memcpy(data, &ubo, sizeof(ubo));
+    vmaUnmapMemory(_bufferManager->allocator,
+                   uniformBuffers[currentImage].allocation);
 }
 
 VkDevice Swapchain::device() {
     return _device->device;
 }
 
-void Swapchain::_innerInitFirst(const app::Window& appWindow) {
-    std::tie(swapchain, format, extent, images) = _createSwapChain(appWindow);
+void Swapchain::_innerInit(int width, int height) {
+    std::tie(swapchain, format, extent, images)
+        = _createSwapChain(width, height);
     imageViews = _createImageViews();
     renderPass = _createRenderPass();
     std::tie(layout, pipeline) = _createGraphicsPipeline();
     swapchainFramebuffers = _createFramebuffers();
     descriptorPool = _createDescriptorPool();
-}
 
-void Swapchain::_innerInitSecond() {
+    uniformBuffers = _createUniformBuffers(imageViews.size());
+
     descriptorSets = _createDescriptorSets();
     commandBuffers = _createCommandBuffers();
 }
@@ -78,7 +88,7 @@ void Swapchain::_cleanup() {
 }
 
 std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
-Swapchain::_createSwapChain(const app::Window& appWindow) {
+Swapchain::_createSwapChain(int width, int height) {
     auto swapChainSupport = utils::querySwapChainSupport(
         _device->physicalDevice, _device->surface);
     auto surfaceFormat
@@ -86,7 +96,6 @@ Swapchain::_createSwapChain(const app::Window& appWindow) {
     auto presentMode
         = utils::chooseSwapPresentMode(swapChainSupport.presentModes);
 
-    auto [width, height] = appWindow.getFrameBufferSize();
     auto extent
         = utils::chooseSwapExtent(swapChainSupport.capabilities, width, height);
 
@@ -473,7 +482,7 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
 
     for (std::size_t i = 0; i < size; ++i) {
         VkDescriptorBufferInfo bufferInfo = {};
-        bufferInfo.buffer = _bufferManager->uniformBuffers[i].buffer;
+        bufferInfo.buffer = uniformBuffers[i].buffer;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(scene::UniformBufferObject);
 
@@ -528,7 +537,7 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = extent;
 
-        VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // yes 3 braces
+        VkClearValue clearColor = {{{0.7f, 0.7f, 1.0f, 1.0f}}}; // yes 3 braces
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
 
@@ -576,5 +585,21 @@ VkShaderModule Swapchain::_createShaderModule(const std::string& path) {
 
     return module;
 }
+
+std::vector<Buffer> Swapchain::_createUniformBuffers(std::size_t imageSize) {
+    VkDeviceSize bufferSize = sizeof(scene::UniformBufferObject);
+    std::vector<Buffer> buffers;
+    buffers.reserve(imageSize);
+
+    for (std::size_t i = 0; i < imageSize; ++i) {
+        auto buffer = _bufferManager->createBuffer(
+            bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_CPU_TO_GPU);
+        buffers.push_back(buffer);
+    }
+
+    return buffers;
+}
+
 } // namespace vulkan
 

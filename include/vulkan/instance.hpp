@@ -60,7 +60,7 @@ class Instance {
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     Device _device;
-    Swapchain _swapchain;
+    std::unique_ptr<Swapchain> _swapchain;
     VkCommandPool _commandPool;
     std::unique_ptr<BufferManager> _bufferManager;
     std::vector<SyncObject> _syncObjects;

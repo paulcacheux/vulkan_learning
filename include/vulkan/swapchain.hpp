@@ -8,6 +8,7 @@
 #include <tuple>
 #include <vector>
 
+#include "scene.hpp"
 #include "vk_mem_alloc.h"
 
 class Game;
@@ -20,15 +21,15 @@ namespace vulkan {
 
 class Device;
 class BufferManager;
+struct Buffer;
 
 struct Swapchain {
-    Swapchain() = default;
-    void preInit(Device* instance, VkCommandPool commandPool,
-                 BufferManager* bufferManager, Game* game,
-                 const app::Window& appWindow);
-    void finishInit();
-    void recreate(const app::Window& appWindow);
-    void destroy();
+    Swapchain(Device* instance, VkCommandPool commandPool,
+              BufferManager* bufferManager, Game* game, int width, int height);
+    ~Swapchain();
+    void recreate(int width, int height);
+    void updateUniformBuffer(uint32_t currentImage,
+                             scene::UniformBufferObject ubo);
     VkDevice device();
 
     VkSwapchainKHR swapchain;
@@ -49,12 +50,14 @@ struct Swapchain {
     std::vector<VkDescriptorSet> descriptorSets;
     std::vector<VkCommandBuffer> commandBuffers;
 
+    // uniform buffers
+    std::vector<Buffer> uniformBuffers;
+
   private:
-    void _innerInitFirst(const app::Window& appWindow);
-    void _innerInitSecond();
+    void _innerInit(int width, int height);
     void _cleanup();
     std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
-    _createSwapChain(const app::Window& appWindow);
+    _createSwapChain(int width, int height);
     std::vector<VkImageView> _createImageViews();
     VkRenderPass _createRenderPass();
     std::tuple<VkPipelineLayout, VkPipeline> _createGraphicsPipeline();
@@ -64,6 +67,7 @@ struct Swapchain {
     std::vector<VkDescriptorSet> _createDescriptorSets();
     std::vector<VkCommandBuffer> _createCommandBuffers();
     VkShaderModule _createShaderModule(const std::string& path);
+    std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
 
     VkCommandPool _commandPool;
     Device* _device;

@@ -9,17 +9,14 @@ void Buffer::destroy(VmaAllocator allocator) {
 BufferManager::BufferManager(Device* device, VmaAllocator allocator,
                              VkCommandPool commandPool,
                              const scene::Scene& scene)
-    : _device(device), _allocator(allocator) {
+    : allocator(allocator), _device(device) {
     vertexBuffer = _createVertexBuffer(scene.vertices, commandPool);
     indexBuffer = _createIndexBuffer(scene.indices, commandPool);
 }
 
 BufferManager::~BufferManager() {
-    vertexBuffer.destroy(_allocator);
-    indexBuffer.destroy(_allocator);
-    for (auto& uniformBuffer : uniformBuffers) {
-        uniformBuffer.destroy(_allocator);
-    }
+    vertexBuffer.destroy(allocator);
+    indexBuffer.destroy(allocator);
 }
 
 Buffer
@@ -35,37 +32,6 @@ Buffer BufferManager::_createIndexBuffer(const std::vector<uint16_t>& indices,
                                 commandPool);
 }
 
-std::vector<Buffer>
-BufferManager::_createUniformBuffers(std::size_t imageSize) {
-    VkDeviceSize bufferSize = sizeof(scene::UniformBufferObject);
-    std::vector<Buffer> buffers;
-    buffers.reserve(imageSize);
-
-    for (std::size_t i = 0; i < imageSize; ++i) {
-        auto buffer
-            = createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                           VMA_MEMORY_USAGE_CPU_TO_GPU);
-        buffers.push_back(buffer);
-    }
-
-    return buffers;
-}
-
-void BufferManager::recreateUniformBuffers(std::size_t imageSize) {
-    for (auto& uniformBuffer : uniformBuffers) {
-        uniformBuffer.destroy(_allocator);
-    }
-    uniformBuffers = _createUniformBuffers(imageSize);
-}
-
-void BufferManager::updateUniformBuffer(uint32_t currentImage,
-                                        scene::UniformBufferObject ubo) {
-    void* data;
-    vmaMapMemory(_allocator, uniformBuffers[currentImage].allocation, &data);
-    std::memcpy(data, &ubo, sizeof(ubo));
-    vmaUnmapMemory(_allocator, uniformBuffers[currentImage].allocation);
-}
-
 Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                                    VmaMemoryUsage vmaUsage) {
     VkBufferCreateInfo bufferInfo = {};
@@ -79,7 +45,7 @@ Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 
     VkBuffer buffer;
     VmaAllocation allocation;
-    vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
                     nullptr);
     return Buffer{buffer, allocation};
 }
@@ -119,6 +85,10 @@ void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     vkQueueWaitIdle(_device->graphicsQueue);
 
     vkFreeCommandBuffers(_device->device, commandPool, 1, &commandBuffer);
+}
+
+void BufferManager::destroyBuffer(Buffer buffer) {
+    buffer.destroy(allocator);
 }
 
 } // namespace vulkan
