@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <string>
 
-#include "vulkan/instance.hpp"
+#include "vulkan/renderer.hpp"
 
 class Game;
 
@@ -30,7 +30,7 @@ class Window {
     std::pair<int, int> getSize() const;
     std::pair<int, int> getFrameBufferSize() const;
     void switchToRawMouseMode() const;
-    void linkToInstance(vulkan::Instance* instance) const;
+    void linkToRenderer(vulkan::Renderer* renderer) const;
     void waitUntilUnminimized() const;
 
   private:

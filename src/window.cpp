@@ -56,8 +56,8 @@ void Window::switchToRawMouseMode() const {
     }
 }
 
-void Window::linkToInstance(vulkan::Instance* instance) const {
-    glfwSetWindowUserPointer(_window, instance);
+void Window::linkToRenderer(vulkan::Renderer* renderer) const {
+    glfwSetWindowUserPointer(_window, renderer);
     glfwSetKeyCallback(_window, key_callback);
     glfwSetFramebufferSizeCallback(_window, resize_callback);
     glfwSetCursorPosCallback(_window, mouse_pos_callback);
@@ -73,7 +73,7 @@ void Window::waitUntilUnminimized() const {
 
 void resize_callback(GLFWwindow* window, int, int) {
     auto instance
-        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
+        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
     instance->setMustRecreateSwapchain();
 }
 
@@ -89,7 +89,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action,
     }
 
     auto instance
-        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
+        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
 
     if (key == GLFW_KEY_ESCAPE && pressed) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -110,7 +110,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action,
 
 void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
     auto instance
-        = reinterpret_cast<vulkan::Instance*>(glfwGetWindowUserPointer(window));
+        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
     instance->game.setNewMouseInput(xpos, ypos);
 }
 

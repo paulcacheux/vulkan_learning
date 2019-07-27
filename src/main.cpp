@@ -11,7 +11,7 @@
 
 #include "game.hpp"
 #include "scene.hpp"
-#include "vulkan/instance.hpp"
+#include "vulkan/renderer.hpp"
 #include "window.hpp"
 
 const std::size_t WIDTH = 800;
@@ -26,9 +26,9 @@ int main() {
         scene::Camera camera;
         Game game(scene, camera);
 
-        vulkan::Instance instance(window, game);
+        vulkan::Renderer renderer(window, game);
 
-        window.linkToInstance(&instance);
+        window.linkToRenderer(&renderer);
         window.switchToRawMouseMode();
 
         auto maxFps = 144;
@@ -55,9 +55,9 @@ int main() {
 
             context.pollEvents();
             game.update(dtf);
-            instance.drawFrame();
+            renderer.drawFrame();
         }
-        instance.deviceWaitIdle();
+        renderer.deviceWaitIdle();
 
     } catch (std::exception e) {
         std::cerr << e.what() << std::endl;
