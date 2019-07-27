@@ -56,8 +56,8 @@ void Window::switchToRawMouseMode() const {
     }
 }
 
-void Window::linkToRenderer(vulkan::Renderer* renderer) const {
-    glfwSetWindowUserPointer(_window, renderer);
+void Window::linkToCoupler(GameRendererCoupler* coupler) const {
+    glfwSetWindowUserPointer(_window, coupler);
     glfwSetKeyCallback(_window, key_callback);
     glfwSetFramebufferSizeCallback(_window, resize_callback);
     glfwSetCursorPosCallback(_window, mouse_pos_callback);
@@ -72,9 +72,9 @@ void Window::waitUntilUnminimized() const {
 }
 
 void resize_callback(GLFWwindow* window, int, int) {
-    auto instance
-        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
-    instance->setMustRecreateSwapchain();
+    auto coupler = reinterpret_cast<GameRendererCoupler*>(
+        glfwGetWindowUserPointer(window));
+    coupler->renderer.setMustRecreateSwapchain();
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action,
@@ -88,30 +88,30 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
-    auto instance
-        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
+    auto coupler = reinterpret_cast<GameRendererCoupler*>(
+        glfwGetWindowUserPointer(window));
 
     if (key == GLFW_KEY_ESCAPE && pressed) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     } else if (key == GLFW_KEY_LEFT_SHIFT) {
-        instance->game.setInputState(InputState::Down, pressed);
+        coupler->game.setInputState(InputState::Down, pressed);
     } else if (key == GLFW_KEY_SPACE) {
-        instance->game.setInputState(InputState::Up, pressed);
+        coupler->game.setInputState(InputState::Up, pressed);
     } else if (key == GLFW_KEY_W) {
-        instance->game.setInputState(InputState::Front, pressed);
+        coupler->game.setInputState(InputState::Front, pressed);
     } else if (key == GLFW_KEY_A) {
-        instance->game.setInputState(InputState::Left, pressed);
+        coupler->game.setInputState(InputState::Left, pressed);
     } else if (key == GLFW_KEY_S) {
-        instance->game.setInputState(InputState::Back, pressed);
+        coupler->game.setInputState(InputState::Back, pressed);
     } else if (key == GLFW_KEY_D) {
-        instance->game.setInputState(InputState::Right, pressed);
+        coupler->game.setInputState(InputState::Right, pressed);
     }
 }
 
 void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
-    auto instance
-        = reinterpret_cast<vulkan::Renderer*>(glfwGetWindowUserPointer(window));
-    instance->game.setNewMouseInput(xpos, ypos);
+    auto coupler = reinterpret_cast<GameRendererCoupler*>(
+        glfwGetWindowUserPointer(window));
+    coupler->game.setNewMouseInput(xpos, ypos);
 }
 
 } // namespace app

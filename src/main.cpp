@@ -22,13 +22,11 @@ int main() {
         app::WindowContext context;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
 
-        scene::Scene scene;
-        scene::Camera camera;
-        Game game(scene, camera);
+        Game game;
+        vulkan::Renderer renderer(window, game.getScene());
 
-        vulkan::Renderer renderer(window, game);
-
-        window.linkToRenderer(&renderer);
+        app::GameRendererCoupler coupler{game, renderer};
+        window.linkToCoupler(&coupler);
         window.switchToRawMouseMode();
 
         auto maxFps = 144;
@@ -55,7 +53,7 @@ int main() {
 
             context.pollEvents();
             game.update(dtf);
-            renderer.drawFrame();
+            renderer.drawFrame(game.getCamera().getViewMatrix());
         }
         renderer.deviceWaitIdle();
 

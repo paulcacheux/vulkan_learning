@@ -2,7 +2,30 @@
 
 #include <iostream>
 
-Game::Game(scene::Scene s, scene::Camera c) : _scene(s), _camera(c) {
+Game::Game() {
+    _scene.vertices = {
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+    };
+
+    _scene.addTriangle({2, 1, 0});
+    _scene.addTriangle({0, 3, 2});
+    _scene.addTriangle({4, 5, 6});
+    _scene.addTriangle({6, 7, 4});
+    _scene.addTriangle({4, 3, 0});
+    _scene.addTriangle({3, 4, 7});
+    _scene.addTriangle({1, 2, 5});
+    _scene.addTriangle({6, 5, 2});
+    _scene.addTriangle({0, 1, 4});
+    _scene.addTriangle({5, 4, 1});
+    _scene.addTriangle({7, 2, 3});
+    _scene.addTriangle({2, 7, 6});
 }
 
 void Game::update(float dt) {
@@ -42,5 +65,9 @@ const scene::Scene& Game::getScene() const {
 }
 
 const scene::Camera& Game::getCamera() const {
+    return _camera;
+}
+
+scene::Camera& Game::getCamera() {
     return _camera;
 }

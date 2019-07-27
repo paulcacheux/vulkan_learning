@@ -31,32 +31,6 @@ Vertex::getAttributeDescriptions() {
     return attributeDescriptions;
 }
 
-Scene::Scene() {
-    vertices = {
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
-    };
-
-    addTriangle({2, 1, 0});
-    addTriangle({0, 3, 2});
-    addTriangle({4, 5, 6});
-    addTriangle({6, 7, 4});
-    addTriangle({4, 3, 0});
-    addTriangle({3, 4, 7});
-    addTriangle({1, 2, 5});
-    addTriangle({6, 5, 2});
-    addTriangle({0, 1, 4});
-    addTriangle({5, 4, 1});
-    addTriangle({7, 2, 3});
-    addTriangle({2, 7, 6});
-}
-
 glm::mat4 Scene::getModelMatrix(float time) const {
     return glm::identity<glm::mat4>();
     // return glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),

@@ -29,7 +29,7 @@ struct Vertex {
 };
 
 struct Scene {
-    Scene();
+    Scene() = default;
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
 

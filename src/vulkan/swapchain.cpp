@@ -1,5 +1,4 @@
 #include "vulkan/swapchain.hpp"
-#include "game.hpp"
 #include "vulkan/buffer_manager.hpp"
 #include "vulkan/device.hpp"
 #include "vulkan/utils.hpp"
@@ -10,9 +9,9 @@
 namespace vulkan {
 
 Swapchain::Swapchain(Device* device, VkCommandPool commandPool,
-                     BufferManager* bufferManager, Game* game, int width,
-                     int height)
-    : _commandPool(commandPool), _device(device), _game(game),
+                     BufferManager* bufferManager, const scene::Scene& scene,
+                     int width, int height)
+    : _commandPool(commandPool), _device(device), _scene(scene),
       _bufferManager(bufferManager) {
     descriptorSetLayout = _createDescriptorSetLayout();
 
@@ -555,9 +554,9 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(
-            buffers[i], static_cast<uint32_t>(_game->getScene().indices.size()),
-            1, 0, 0, 0);
+        vkCmdDrawIndexed(buffers[i],
+                         static_cast<uint32_t>(_scene.indices.size()), 1, 0, 0,
+                         0);
 
         vkCmdEndRenderPass(buffers[i]);
 

@@ -20,6 +20,11 @@ class WindowContext {
     void pollEvents() const;
 };
 
+struct GameRendererCoupler {
+    Game& game;
+    vulkan::Renderer& renderer;
+};
+
 class Window {
   public:
     Window(std::size_t width, std::size_t height, std::string title);
@@ -30,7 +35,7 @@ class Window {
     std::pair<int, int> getSize() const;
     std::pair<int, int> getFrameBufferSize() const;
     void switchToRawMouseMode() const;
-    void linkToRenderer(vulkan::Renderer* renderer) const;
+    void linkToCoupler(GameRendererCoupler* coupler) const;
     void waitUntilUnminimized() const;
 
   private:

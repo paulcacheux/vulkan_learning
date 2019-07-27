@@ -11,8 +11,6 @@
 #include "scene.hpp"
 #include "vk_mem_alloc.h"
 
-class Game;
-
 namespace app {
 class Window;
 }
@@ -25,7 +23,8 @@ struct Buffer;
 
 struct Swapchain {
     Swapchain(Device* instance, VkCommandPool commandPool,
-              BufferManager* bufferManager, Game* game, int width, int height);
+              BufferManager* bufferManager, const scene::Scene& scene,
+              int width, int height);
     ~Swapchain();
     void recreate(int width, int height);
     void updateUniformBuffer(uint32_t currentImage,
@@ -71,7 +70,7 @@ struct Swapchain {
 
     VkCommandPool _commandPool;
     Device* _device;
-    Game* _game;
+    const scene::Scene& _scene;
     BufferManager* _bufferManager;
 };
 

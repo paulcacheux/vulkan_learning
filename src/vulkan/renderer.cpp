@@ -14,8 +14,8 @@
 
 namespace vulkan {
 
-Renderer::Renderer(const app::Window& appWindow, Game& game)
-    : game(game), _appWindow(appWindow) {
+Renderer::Renderer(const app::Window& appWindow, const scene::Scene& scene)
+    : _scene(scene), _appWindow(appWindow) {
     if (utils::enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error(
             "validation layer requested, but not available");
@@ -55,12 +55,12 @@ Renderer::Renderer(const app::Window& appWindow, Game& game)
     _allocator = _createAllocator();
 
     _commandPool = _createCommandPool();
-    _bufferManager = std::make_unique<BufferManager>(
-        &_device, _allocator, _commandPool, game.getScene());
+    _bufferManager = std::make_unique<BufferManager>(&_device, _allocator,
+                                                     _commandPool, _scene);
 
     auto [width, height] = appWindow.getFrameBufferSize();
     _swapchain = std::make_unique<Swapchain>(
-        &_device, _commandPool, _bufferManager.get(), &game, width, height);
+        &_device, _commandPool, _bufferManager.get(), scene, width, height);
 
     _syncObjects = _createSyncObjects();
 }
@@ -107,7 +107,7 @@ bool Renderer::checkValidationLayerSupport() {
     return true;
 }
 
-void Renderer::drawFrame() {
+void Renderer::drawFrame(glm::mat4 viewMatrix) {
     auto currentSync = _syncObjects[currentFrame];
 
     vkWaitForFences(device(), 1, &currentSync.inFlight, VK_TRUE,
@@ -125,7 +125,7 @@ void Renderer::drawFrame() {
         throw std::runtime_error("failed to acquire swapchain image");
     }
 
-    updateUniformBuffer(imageIndex);
+    updateUniformBuffer(imageIndex, viewMatrix);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -188,7 +188,8 @@ void Renderer::recreateSwapchain() {
     _swapchain->recreate(width, height);
 }
 
-void Renderer::updateUniformBuffer(uint32_t currentImage) {
+void Renderer::updateUniformBuffer(uint32_t currentImage,
+                                   glm::mat4 viewMatrix) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -197,8 +198,9 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
                      .count();
 
     scene::UniformBufferObject ubo;
-    ubo.model = game.getScene().getModelMatrix(time);
-    ubo.view = game.getCamera().getViewMatrix();
+    ubo.model = _scene.getModelMatrix(time);
+    // ubo.view = game.getCamera().getViewMatrix();
+    ubo.view = viewMatrix;
 
     ubo.proj = glm::perspective(glm::radians(45.0f),
                                 _swapchain->extent.width

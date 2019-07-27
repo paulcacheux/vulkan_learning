@@ -18,7 +18,7 @@ constexpr std::size_t inputStateSize
 
 class Game {
   public:
-    Game(scene::Scene s, scene::Camera c);
+    Game();
 
     void update(float dt);
     bool getInputState(InputState is) const;
@@ -27,6 +27,7 @@ class Game {
 
     const scene::Scene& getScene() const;
     const scene::Camera& getCamera() const;
+    scene::Camera& getCamera();
 
   private:
     scene::Scene _scene;
