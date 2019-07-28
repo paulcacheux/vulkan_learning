@@ -31,7 +31,7 @@ struct Vertex {
 struct Scene {
     Scene() = default;
     std::vector<Vertex> vertices;
-    std::vector<uint16_t> indices;
+    std::vector<uint32_t> indices;
     void addTriangle(std::array<uint16_t, 3> id);
 
     glm::mat4 getModelMatrix() const;

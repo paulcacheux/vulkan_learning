@@ -52,6 +52,15 @@ void Swapchain::updateUniformBuffer(uint32_t currentImage,
                    uniformBuffers[currentImage].allocation);
 }
 
+void Swapchain::updateSceneData(const std::vector<scene::Vertex>& vertices,
+                                const std::vector<uint32_t>& indices) {
+    _bufferManager->destroyBuffer(vertexBuffer);
+    _bufferManager->destroyBuffer(indexBuffer);
+    vertexBuffer = _createVertexBuffer(vertices, _commandPool);
+    indexBuffer = _createIndexBuffer(indices, _commandPool);
+    commandBuffers = _createCommandBuffers();
+}
+
 VkDevice Swapchain::device() {
     return _device->device;
 }
@@ -556,7 +565,7 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(buffers[i], indexBuffer.buffer, 0,
-                             VK_INDEX_TYPE_UINT16);
+                             VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
 
@@ -613,7 +622,7 @@ Swapchain::_createVertexBuffer(const std::vector<scene::Vertex>& vertices,
         vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, commandPool);
 }
 
-Buffer Swapchain::_createIndexBuffer(const std::vector<uint16_t>& indices,
+Buffer Swapchain::_createIndexBuffer(const std::vector<uint32_t>& indices,
                                      VkCommandPool commandPool) {
     return _bufferManager->createTwoLevelBuffer(
         indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, commandPool);

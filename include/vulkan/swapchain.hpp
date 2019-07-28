@@ -28,6 +28,8 @@ struct Swapchain {
     void recreate(int width, int height);
     void updateUniformBuffer(uint32_t currentImage,
                              scene::UniformBufferObject ubo);
+    void updateSceneData(const std::vector<scene::Vertex>& vertices,
+                         const std::vector<uint32_t>& indices);
     VkDevice device();
 
     VkSwapchainKHR swapchain;
@@ -70,7 +72,7 @@ struct Swapchain {
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
     Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices,
                                VkCommandPool commandPool);
-    Buffer _createIndexBuffer(const std::vector<uint16_t>& indices,
+    Buffer _createIndexBuffer(const std::vector<uint32_t>& indices,
                               VkCommandPool commandPool);
 
     VkCommandPool _commandPool;
