@@ -8,6 +8,7 @@
 #include <tuple>
 #include <vector>
 
+#include "buffer_manager.hpp"
 #include "scene.hpp"
 #include "vk_mem_alloc.h"
 
@@ -18,8 +19,6 @@ class Window;
 namespace vulkan {
 
 class Device;
-class BufferManager;
-struct Buffer;
 
 struct Swapchain {
     Swapchain(Device* instance, VkCommandPool commandPool,
@@ -51,6 +50,8 @@ struct Swapchain {
 
     // uniform buffers
     std::vector<Buffer> uniformBuffers;
+    Buffer vertexBuffer;
+    Buffer indexBuffer;
 
   private:
     void _innerInit(int width, int height);
@@ -67,6 +68,10 @@ struct Swapchain {
     std::vector<VkCommandBuffer> _createCommandBuffers();
     VkShaderModule _createShaderModule(const std::string& path);
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
+    Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices,
+                               VkCommandPool commandPool);
+    Buffer _createIndexBuffer(const std::vector<uint16_t>& indices,
+                              VkCommandPool commandPool);
 
     VkCommandPool _commandPool;
     Device* _device;

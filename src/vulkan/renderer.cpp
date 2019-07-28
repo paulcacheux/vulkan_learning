@@ -55,8 +55,7 @@ Renderer::Renderer(const app::Window& appWindow, const scene::Scene* scene)
     _allocator = _createAllocator();
 
     _commandPool = _createCommandPool();
-    _bufferManager = std::make_unique<BufferManager>(&_device, _allocator,
-                                                     _commandPool, *_scene);
+    _bufferManager = std::make_unique<BufferManager>(&_device, _allocator);
 
     auto [width, height] = appWindow.getFrameBufferSize();
     _swapchain = std::make_unique<Swapchain>(

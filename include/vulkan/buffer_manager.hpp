@@ -22,9 +22,7 @@ struct Buffer {
 
 class BufferManager {
   public:
-    BufferManager(Device* device, VmaAllocator allocator,
-                  VkCommandPool commandPool, const scene::Scene& scene);
-    ~BufferManager();
+    BufferManager(Device* device, VmaAllocator allocator);
 
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
@@ -36,16 +34,9 @@ class BufferManager {
                     VkCommandPool commandPool);
     void destroyBuffer(Buffer buffer);
 
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
     VmaAllocator allocator;
 
   private:
-    Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices,
-                               VkCommandPool commandPool);
-    Buffer _createIndexBuffer(const std::vector<uint16_t>& indices,
-                              VkCommandPool commandPool);
-
     Device* _device;
 };
 

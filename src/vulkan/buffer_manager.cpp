@@ -6,30 +6,8 @@ void Buffer::destroy(VmaAllocator allocator) {
     vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
-BufferManager::BufferManager(Device* device, VmaAllocator allocator,
-                             VkCommandPool commandPool,
-                             const scene::Scene& scene)
+BufferManager::BufferManager(Device* device, VmaAllocator allocator)
     : allocator(allocator), _device(device) {
-    vertexBuffer = _createVertexBuffer(scene.vertices, commandPool);
-    indexBuffer = _createIndexBuffer(scene.indices, commandPool);
-}
-
-BufferManager::~BufferManager() {
-    vertexBuffer.destroy(allocator);
-    indexBuffer.destroy(allocator);
-}
-
-Buffer
-BufferManager::_createVertexBuffer(const std::vector<scene::Vertex>& vertices,
-                                   VkCommandPool commandPool) {
-    return createTwoLevelBuffer(vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                commandPool);
-}
-
-Buffer BufferManager::_createIndexBuffer(const std::vector<uint16_t>& indices,
-                                         VkCommandPool commandPool) {
-    return createTwoLevelBuffer(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                commandPool);
 }
 
 Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,

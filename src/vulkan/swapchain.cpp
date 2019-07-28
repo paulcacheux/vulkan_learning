@@ -13,13 +13,19 @@ Swapchain::Swapchain(Device* device, VkCommandPool commandPool,
                      int width, int height)
     : _commandPool(commandPool), _device(device), _scene(scene),
       _bufferManager(bufferManager) {
+
     descriptorSetLayout = _createDescriptorSetLayout();
+    vertexBuffer = _createVertexBuffer(scene.vertices, commandPool);
+    indexBuffer = _createIndexBuffer(scene.indices, commandPool);
 
     _innerInit(width, height);
 }
 
 Swapchain::~Swapchain() {
     _cleanup();
+
+    _bufferManager->destroyBuffer(vertexBuffer);
+    _bufferManager->destroyBuffer(indexBuffer);
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
     for (auto& uniformBuffer : uniformBuffers) {
@@ -546,10 +552,10 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
         vkCmdBindPipeline(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline);
 
-        VkBuffer vertexBuffers[] = {_bufferManager->vertexBuffer.buffer};
+        VkBuffer vertexBuffers[] = {vertexBuffer.buffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(buffers[i], 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(buffers[i], _bufferManager->indexBuffer.buffer, 0,
+        vkCmdBindIndexBuffer(buffers[i], indexBuffer.buffer, 0,
                              VK_INDEX_TYPE_UINT16);
         vkCmdBindDescriptorSets(buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
@@ -598,6 +604,19 @@ std::vector<Buffer> Swapchain::_createUniformBuffers(std::size_t imageSize) {
     }
 
     return buffers;
+}
+
+Buffer
+Swapchain::_createVertexBuffer(const std::vector<scene::Vertex>& vertices,
+                               VkCommandPool commandPool) {
+    return _bufferManager->createTwoLevelBuffer(
+        vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, commandPool);
+}
+
+Buffer Swapchain::_createIndexBuffer(const std::vector<uint16_t>& indices,
+                                     VkCommandPool commandPool) {
+    return _bufferManager->createTwoLevelBuffer(
+        indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, commandPool);
 }
 
 } // namespace vulkan

@@ -5,7 +5,7 @@ project(VulkanTuto)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O")
 
 file(GLOB_RECURSE src_files "src/*.cpp" "vma/*.cpp")
 include_directories(vma)

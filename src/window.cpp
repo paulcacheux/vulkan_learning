@@ -77,8 +77,8 @@ void resize_callback(GLFWwindow* window, int, int) {
     coupler->renderer.setMustRecreateSwapchain();
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action,
-                  int mods) {
+void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action,
+                  int /*mods*/) {
     bool pressed;
     if (action == GLFW_PRESS) {
         pressed = true;
