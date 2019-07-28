@@ -106,7 +106,7 @@ void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action,
     } else if (key == GLFW_KEY_D) {
         coupler->game.setInputState(InputState::Right, pressed);
     } else if (key == GLFW_KEY_U) {
-        coupler->game.randomChangeColors();
+        coupler->game.randomChangeScene();
     }
 }
 

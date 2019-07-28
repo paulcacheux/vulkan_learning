@@ -26,7 +26,7 @@ class Game {
     bool getInputState(InputState is) const;
     void setInputState(InputState is, bool value);
     void setNewMouseInput(double xpos, double ypos);
-    void randomChangeColors();
+    void randomChangeScene();
 
     const scene::Scene& getScene() const;
     const scene::Camera& getCamera() const;

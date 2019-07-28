@@ -29,7 +29,7 @@ int main() {
         window.linkToCoupler(&coupler);
         window.switchToRawMouseMode();
 
-        auto maxFps = 144;
+        auto maxFps = 200;
         auto frameMinDuration
             = std::chrono::duration<float, std::chrono::seconds::period>(
                 1 / (float)maxFps);
@@ -53,7 +53,8 @@ int main() {
             context.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dtf);
-            renderer.setScene(&game.getScene());
+            renderer.setScene(
+                &game.getScene()); // TODO set scene only when changes occured
             renderer.drawFrame();
         }
         renderer.deviceWaitIdle();

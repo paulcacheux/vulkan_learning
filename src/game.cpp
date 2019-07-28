@@ -60,10 +60,15 @@ void Game::setNewMouseInput(double xpos, double ypos) {
     _ypos = ypos;
 }
 
-void Game::randomChangeColors() {
+void Game::randomChangeScene() {
     for (auto& vertex : _scene.vertices) {
+        // change color
         for (std::size_t i = 0; i < 3; ++i) {
             vertex.color[i] = _distribution(_gen);
+        }
+        // change cube
+        for (std::size_t i = 0; i < 3; ++i) {
+            vertex.pos[i] += (_distribution(_gen) - 0.5) / 10;
         }
     }
 }
