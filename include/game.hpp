@@ -28,6 +28,7 @@ class Game {
     const scene::Scene& getScene() const;
     const scene::Camera& getCamera() const;
     scene::Camera& getCamera();
+    glm::mat4 getModelMatrix() const;
 
   private:
     scene::Scene _scene;

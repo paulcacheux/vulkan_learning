@@ -32,17 +32,21 @@ class Renderer {
     };
 
   public:
-    Renderer(const app::Window& appWindow, const scene::Scene& scene);
+    Renderer(const app::Window& appWindow, const scene::Scene* scene);
     ~Renderer();
 
     bool checkValidationLayerSupport();
-    void drawFrame(glm::mat4 viewMatrix);
+    void drawFrame();
     void deviceWaitIdle();
     void recreateSwapchain();
     void setMustRecreateSwapchain() {
         _mustRecreateSwapchain = true;
     }
-    void updateUniformBuffer(uint32_t currentImage, glm::mat4 viewMatrix);
+    void updateUniformBuffer(uint32_t currentImage);
+
+    void setScene(const scene::Scene* scene);
+    void setViewMatrix(glm::mat4 viewMatrix);
+
     VkDevice device();
     VmaAllocator allocator();
 
@@ -53,7 +57,8 @@ class Renderer {
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
     std::vector<SyncObject> _createSyncObjects();
 
-    const scene::Scene& _scene;
+    const scene::Scene* _scene;
+    glm::mat4 _viewMatrix;
     const app::Window& _appWindow;
     VmaAllocator _allocator;
     VkInstance _instance;

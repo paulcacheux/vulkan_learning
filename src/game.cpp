@@ -71,3 +71,7 @@ const scene::Camera& Game::getCamera() const {
 scene::Camera& Game::getCamera() {
     return _camera;
 }
+
+glm::mat4 Game::getModelMatrix() const {
+    return glm::mat4();
+}

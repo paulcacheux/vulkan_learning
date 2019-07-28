@@ -23,7 +23,7 @@ int main() {
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
 
         Game game;
-        vulkan::Renderer renderer(window, game.getScene());
+        vulkan::Renderer renderer(window, &game.getScene());
 
         app::GameRendererCoupler coupler{game, renderer};
         window.linkToCoupler(&coupler);
@@ -52,8 +52,9 @@ int main() {
             // std::cout << "FPS: " << 1 / dtf << "\n";
 
             context.pollEvents();
+            renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dtf);
-            renderer.drawFrame(game.getCamera().getViewMatrix());
+            renderer.drawFrame();
         }
         renderer.deviceWaitIdle();
 

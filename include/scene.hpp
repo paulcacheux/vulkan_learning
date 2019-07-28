@@ -32,9 +32,9 @@ struct Scene {
     Scene() = default;
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
-
-    glm::mat4 getModelMatrix(float time) const;
     void addTriangle(std::array<uint16_t, 3> id);
+
+    glm::mat4 getModelMatrix() const;
 };
 
 struct Camera {

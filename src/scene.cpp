@@ -31,17 +31,15 @@ Vertex::getAttributeDescriptions() {
     return attributeDescriptions;
 }
 
-glm::mat4 Scene::getModelMatrix(float time) const {
-    return glm::identity<glm::mat4>();
-    // return glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-    //                  glm::vec3(0.0f, 0.0f, 1.0f));
-}
-
 void Scene::addTriangle(std::array<uint16_t, 3> id) {
     indices.reserve(indices.size() + id.size());
     for (auto i : id) {
         indices.push_back(i);
     }
+}
+
+glm::mat4 Scene::getModelMatrix() const {
+    return glm::mat4(1);
 }
 
 Camera::Camera() {
