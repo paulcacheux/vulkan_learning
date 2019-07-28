@@ -14,8 +14,7 @@
 
 namespace vulkan {
 
-Renderer::Renderer(const app::Window& appWindow, const scene::Scene* scene)
-    : _scene(scene), _appWindow(appWindow) {
+Renderer::Renderer(const app::Window& appWindow) : _appWindow(appWindow) {
     if (utils::enableValidationLayers && !checkValidationLayerSupport()) {
         throw std::runtime_error(
             "validation layer requested, but not available");
@@ -58,8 +57,8 @@ Renderer::Renderer(const app::Window& appWindow, const scene::Scene* scene)
     _bufferManager = std::make_unique<BufferManager>(&_device, _allocator);
 
     auto [width, height] = appWindow.getFrameBufferSize();
-    _swapchain = std::make_unique<Swapchain>(
-        &_device, _commandPool, _bufferManager.get(), *_scene, width, height);
+    _swapchain = std::make_unique<Swapchain>(_device, _commandPool,
+                                             *_bufferManager, width, height);
 
     _syncObjects = _createSyncObjects();
 }

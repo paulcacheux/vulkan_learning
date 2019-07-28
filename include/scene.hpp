@@ -29,7 +29,7 @@ struct Vertex {
 };
 
 struct Scene {
-    Scene() = default;
+    Scene();
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     void addTriangle(std::array<uint16_t, 3> id);

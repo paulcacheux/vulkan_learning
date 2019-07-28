@@ -24,7 +24,8 @@ int main() {
 
         Game game;
         auto scene = game.getScene();
-        vulkan::Renderer renderer(window, &scene);
+        vulkan::Renderer renderer(window);
+        renderer.setScene(&scene);
 
         app::GameRendererCoupler coupler{game, renderer};
         window.linkToCoupler(&coupler);
@@ -58,6 +59,7 @@ int main() {
                 scene = game.getScene();
                 renderer.setScene(&scene);
                 game.sceneHasChanged = false;
+                std::cout << "update\n";
             }
             renderer.drawFrame();
         }

@@ -33,7 +33,7 @@ class Game {
     scene::Camera& getCamera();
     glm::mat4 getModelMatrix() const;
 
-    bool sceneHasChanged = false;
+    bool sceneHasChanged = true;
 
   private:
     scene::Scene _scene;

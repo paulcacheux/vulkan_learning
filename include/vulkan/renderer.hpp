@@ -32,7 +32,7 @@ class Renderer {
     };
 
   public:
-    Renderer(const app::Window& appWindow, const scene::Scene* scene);
+    Renderer(const app::Window& appWindow);
     ~Renderer();
 
     bool checkValidationLayerSupport();

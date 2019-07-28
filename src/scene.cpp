@@ -31,6 +31,9 @@ Vertex::getAttributeDescriptions() {
     return attributeDescriptions;
 }
 
+Scene::Scene() : vertices({{{0, 0, 0}, {0, 0, 0}}}), indices({0}) {
+}
+
 void Scene::addTriangle(std::array<uint16_t, 3> id) {
     indices.reserve(indices.size() + id.size());
     for (auto i : id) {

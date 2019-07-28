@@ -14,6 +14,7 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
         {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
     };
 
+    _scene.indices.clear();
     _scene.addTriangle({2, 1, 0});
     _scene.addTriangle({0, 3, 2});
     _scene.addTriangle({4, 5, 6});
@@ -67,9 +68,9 @@ void Game::randomChangeScene() {
             vertex.color[i] = _distribution(_gen);
         }
         // change cube
-        for (std::size_t i = 0; i < 3; ++i) {
+        /*for (std::size_t i = 0; i < 3; ++i) {
             vertex.pos[i] += (_distribution(_gen) - 0.5) / 10;
-        }
+        }*/
     }
     sceneHasChanged = true;
 }

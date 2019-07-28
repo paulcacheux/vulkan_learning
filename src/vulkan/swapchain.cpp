@@ -8,35 +8,36 @@
 
 namespace vulkan {
 
-Swapchain::Swapchain(Device* device, VkCommandPool commandPool,
-                     BufferManager* bufferManager, const scene::Scene& scene,
-                     int width, int height)
+Swapchain::Swapchain(Device& device, VkCommandPool commandPool,
+                     BufferManager& bufferManager, int width, int height)
     : _commandPool(commandPool), _device(device),
       _bufferManager(bufferManager) {
 
     descriptorSetLayout = _createDescriptorSetLayout();
-    vertexBuffer = _createVertexBuffer(scene.vertices, commandPool);
-    indexBuffer = _createIndexBuffer(scene.indices, commandPool);
+    scene::Scene emptyScene;
+    vertexBuffer = _createVertexBuffer(emptyScene.vertices, commandPool);
+    indexBuffer = _createIndexBuffer(emptyScene.indices, commandPool);
 
-    _innerInit(width, height, scene);
+    std::cout << "TEST\n";
+    _innerInit(width, height, emptyScene);
 }
 
 Swapchain::~Swapchain() {
     _cleanup();
 
-    _bufferManager->destroyBuffer(vertexBuffer);
-    _bufferManager->destroyBuffer(indexBuffer);
+    _bufferManager.destroyBuffer(vertexBuffer);
+    _bufferManager.destroyBuffer(indexBuffer);
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
     for (auto& uniformBuffer : uniformBuffers) {
-        _bufferManager->destroyBuffer(uniformBuffer);
+        _bufferManager.destroyBuffer(uniformBuffer);
     }
 }
 
 void Swapchain::recreate(int width, int height, const scene::Scene& scene) {
     _cleanup();
     for (auto& uniformBuffer : uniformBuffers) {
-        _bufferManager->destroyBuffer(uniformBuffer);
+        _bufferManager.destroyBuffer(uniformBuffer);
     }
 
     _innerInit(width, height, scene);
@@ -45,23 +46,23 @@ void Swapchain::recreate(int width, int height, const scene::Scene& scene) {
 void Swapchain::updateUniformBuffer(uint32_t currentImage,
                                     scene::UniformBufferObject ubo) {
     void* data;
-    vmaMapMemory(_bufferManager->allocator,
+    vmaMapMemory(_bufferManager.allocator,
                  uniformBuffers[currentImage].allocation, &data);
     std::memcpy(data, &ubo, sizeof(ubo));
-    vmaUnmapMemory(_bufferManager->allocator,
+    vmaUnmapMemory(_bufferManager.allocator,
                    uniformBuffers[currentImage].allocation);
 }
 
 void Swapchain::updateSceneData(const scene::Scene& scene) {
-    _bufferManager->destroyBuffer(vertexBuffer);
-    _bufferManager->destroyBuffer(indexBuffer);
+    _bufferManager.destroyBuffer(vertexBuffer);
+    _bufferManager.destroyBuffer(indexBuffer);
     vertexBuffer = _createVertexBuffer(scene.vertices, _commandPool);
     indexBuffer = _createIndexBuffer(scene.indices, _commandPool);
     commandBuffers = _createCommandBuffers(scene);
 }
 
 VkDevice Swapchain::device() {
-    return _device->device;
+    return _device.device;
 }
 
 void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
@@ -102,8 +103,8 @@ void Swapchain::_cleanup() {
 
 std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
 Swapchain::_createSwapChain(int width, int height) {
-    auto swapChainSupport = utils::querySwapChainSupport(
-        _device->physicalDevice, _device->surface);
+    auto swapChainSupport
+        = utils::querySwapChainSupport(_device.physicalDevice, _device.surface);
     auto surfaceFormat
         = utils::chooseSwapSurfaceFormat(swapChainSupport.formats);
     auto presentMode
@@ -120,7 +121,7 @@ Swapchain::_createSwapChain(int width, int height) {
 
     VkSwapchainCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = _device->surface;
+    createInfo.surface = _device.surface;
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -129,7 +130,7 @@ Swapchain::_createSwapChain(int width, int height) {
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     auto indices
-        = utils::findQueueFamilies(_device->physicalDevice, _device->surface);
+        = utils::findQueueFamilies(_device.physicalDevice, _device.surface);
     uint32_t queueFamilyIndices[]
         = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
@@ -606,7 +607,7 @@ std::vector<Buffer> Swapchain::_createUniformBuffers(std::size_t imageSize) {
     buffers.reserve(imageSize);
 
     for (std::size_t i = 0; i < imageSize; ++i) {
-        auto buffer = _bufferManager->createBuffer(
+        auto buffer = _bufferManager.createBuffer(
             bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_CPU_TO_GPU);
         buffers.push_back(buffer);
@@ -618,13 +619,13 @@ std::vector<Buffer> Swapchain::_createUniformBuffers(std::size_t imageSize) {
 Buffer
 Swapchain::_createVertexBuffer(const std::vector<scene::Vertex>& vertices,
                                VkCommandPool commandPool) {
-    return _bufferManager->createTwoLevelBuffer(
+    return _bufferManager.createTwoLevelBuffer(
         vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, commandPool);
 }
 
 Buffer Swapchain::_createIndexBuffer(const std::vector<uint32_t>& indices,
                                      VkCommandPool commandPool) {
-    return _bufferManager->createTwoLevelBuffer(
+    return _bufferManager.createTwoLevelBuffer(
         indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, commandPool);
 }
 

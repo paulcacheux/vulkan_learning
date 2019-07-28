@@ -21,9 +21,8 @@ namespace vulkan {
 class Device;
 
 struct Swapchain {
-    Swapchain(Device* instance, VkCommandPool commandPool,
-              BufferManager* bufferManager, const scene::Scene& scene,
-              int width, int height);
+    Swapchain(Device& device, VkCommandPool commandPool,
+              BufferManager& bufferManager, int width, int height);
     ~Swapchain();
     void recreate(int width, int height, const scene::Scene& scene);
     void updateUniformBuffer(uint32_t currentImage,
@@ -76,8 +75,8 @@ struct Swapchain {
                               VkCommandPool commandPool);
 
     VkCommandPool _commandPool;
-    Device* _device;
-    BufferManager* _bufferManager;
+    Device& _device;
+    BufferManager& _bufferManager;
 };
 
 } // namespace vulkan
