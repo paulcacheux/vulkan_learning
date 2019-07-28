@@ -184,7 +184,7 @@ void Renderer::recreateSwapchain() {
     deviceWaitIdle();
 
     auto [width, height] = _appWindow.getFrameBufferSize();
-    _swapchain->recreate(width, height);
+    _swapchain->recreate(width, height, *_scene);
 }
 
 void Renderer::updateUniformBuffer(uint32_t currentImage) {
@@ -210,6 +210,8 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
 
 void Renderer::setScene(const scene::Scene* scene) {
     _scene = scene;
+    deviceWaitIdle();
+    _swapchain->updateSceneData(*scene);
 }
 
 void Renderer::setViewMatrix(glm::mat4 viewMatrix) {

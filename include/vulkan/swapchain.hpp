@@ -25,11 +25,10 @@ struct Swapchain {
               BufferManager* bufferManager, const scene::Scene& scene,
               int width, int height);
     ~Swapchain();
-    void recreate(int width, int height);
+    void recreate(int width, int height, const scene::Scene& scene);
     void updateUniformBuffer(uint32_t currentImage,
                              scene::UniformBufferObject ubo);
-    void updateSceneData(const std::vector<scene::Vertex>& vertices,
-                         const std::vector<uint32_t>& indices);
+    void updateSceneData(const scene::Scene& scene);
     VkDevice device();
 
     VkSwapchainKHR swapchain;
@@ -56,7 +55,7 @@ struct Swapchain {
     Buffer indexBuffer;
 
   private:
-    void _innerInit(int width, int height);
+    void _innerInit(int width, int height, const scene::Scene& scene);
     void _cleanup();
     std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<VkImage>>
     _createSwapChain(int width, int height);
@@ -67,7 +66,8 @@ struct Swapchain {
     VkDescriptorPool _createDescriptorPool();
     VkDescriptorSetLayout _createDescriptorSetLayout();
     std::vector<VkDescriptorSet> _createDescriptorSets();
-    std::vector<VkCommandBuffer> _createCommandBuffers();
+    std::vector<VkCommandBuffer>
+    _createCommandBuffers(const scene::Scene& scene);
     VkShaderModule _createShaderModule(const std::string& path);
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
     Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices,
@@ -77,7 +77,6 @@ struct Swapchain {
 
     VkCommandPool _commandPool;
     Device* _device;
-    const scene::Scene& _scene;
     BufferManager* _bufferManager;
 };
 

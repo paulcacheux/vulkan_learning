@@ -48,12 +48,12 @@ int main() {
 
             lastTime = currentTime;
             float dtf = dt.count();
-
-            // std::cout << "FPS: " << 1 / dtf << "\n";
+            std::cout << "FPS: " << 1 / dtf << "\n";
 
             context.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dtf);
+            renderer.setScene(&game.getScene());
             renderer.drawFrame();
         }
         renderer.deviceWaitIdle();

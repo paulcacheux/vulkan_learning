@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-Game::Game() {
+Game::Game() : _rd(), _gen(_rd()), _distribution() {
     _scene.vertices = {
         {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
@@ -58,6 +58,14 @@ void Game::setNewMouseInput(double xpos, double ypos) {
     _currentMouseVec += offset;
     _xpos = xpos;
     _ypos = ypos;
+}
+
+void Game::randomChangeColors() {
+    for (auto& vertex : _scene.vertices) {
+        for (std::size_t i = 0; i < 3; ++i) {
+            vertex.color[i] = _distribution(_gen);
+        }
+    }
 }
 
 const scene::Scene& Game::getScene() const {

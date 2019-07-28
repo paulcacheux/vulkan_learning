@@ -11,14 +11,14 @@ namespace vulkan {
 Swapchain::Swapchain(Device* device, VkCommandPool commandPool,
                      BufferManager* bufferManager, const scene::Scene& scene,
                      int width, int height)
-    : _commandPool(commandPool), _device(device), _scene(scene),
+    : _commandPool(commandPool), _device(device),
       _bufferManager(bufferManager) {
 
     descriptorSetLayout = _createDescriptorSetLayout();
     vertexBuffer = _createVertexBuffer(scene.vertices, commandPool);
     indexBuffer = _createIndexBuffer(scene.indices, commandPool);
 
-    _innerInit(width, height);
+    _innerInit(width, height, scene);
 }
 
 Swapchain::~Swapchain() {
@@ -33,13 +33,13 @@ Swapchain::~Swapchain() {
     }
 }
 
-void Swapchain::recreate(int width, int height) {
+void Swapchain::recreate(int width, int height, const scene::Scene& scene) {
     _cleanup();
     for (auto& uniformBuffer : uniformBuffers) {
         _bufferManager->destroyBuffer(uniformBuffer);
     }
 
-    _innerInit(width, height);
+    _innerInit(width, height, scene);
 }
 
 void Swapchain::updateUniformBuffer(uint32_t currentImage,
@@ -52,20 +52,19 @@ void Swapchain::updateUniformBuffer(uint32_t currentImage,
                    uniformBuffers[currentImage].allocation);
 }
 
-void Swapchain::updateSceneData(const std::vector<scene::Vertex>& vertices,
-                                const std::vector<uint32_t>& indices) {
+void Swapchain::updateSceneData(const scene::Scene& scene) {
     _bufferManager->destroyBuffer(vertexBuffer);
     _bufferManager->destroyBuffer(indexBuffer);
-    vertexBuffer = _createVertexBuffer(vertices, _commandPool);
-    indexBuffer = _createIndexBuffer(indices, _commandPool);
-    commandBuffers = _createCommandBuffers();
+    vertexBuffer = _createVertexBuffer(scene.vertices, _commandPool);
+    indexBuffer = _createIndexBuffer(scene.indices, _commandPool);
+    commandBuffers = _createCommandBuffers(scene);
 }
 
 VkDevice Swapchain::device() {
     return _device->device;
 }
 
-void Swapchain::_innerInit(int width, int height) {
+void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
     std::tie(swapchain, format, extent, images)
         = _createSwapChain(width, height);
     imageViews = _createImageViews();
@@ -77,7 +76,7 @@ void Swapchain::_innerInit(int width, int height) {
     uniformBuffers = _createUniformBuffers(imageViews.size());
 
     descriptorSets = _createDescriptorSets();
-    commandBuffers = _createCommandBuffers();
+    commandBuffers = _createCommandBuffers(scene);
 }
 
 void Swapchain::_cleanup() {
@@ -519,7 +518,8 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
     return descriptorSets;
 }
 
-std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
+std::vector<VkCommandBuffer>
+Swapchain::_createCommandBuffers(const scene::Scene& scene) {
     std::vector<VkCommandBuffer> buffers(swapchainFramebuffers.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -570,7 +570,7 @@ std::vector<VkCommandBuffer> Swapchain::_createCommandBuffers() {
                                 layout, 0, 1, &descriptorSets[i], 0, nullptr);
 
         vkCmdDrawIndexed(buffers[i],
-                         static_cast<uint32_t>(_scene.indices.size()), 1, 0, 0,
+                         static_cast<uint32_t>(scene.indices.size()), 1, 0, 0,
                          0);
 
         vkCmdEndRenderPass(buffers[i]);
