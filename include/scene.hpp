@@ -20,6 +20,9 @@ struct UniformBufferObject {
 };
 
 struct Vertex {
+    Vertex(glm::vec3 pos, glm::vec3 color) : pos(pos), color(color) {
+    }
+
     glm::vec3 pos;
     glm::vec3 color;
 
@@ -32,7 +35,7 @@ struct Scene {
     Scene();
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-    void addTriangle(std::array<uint16_t, 3> id);
+    void addTriangle(std::array<uint32_t, 3> id, uint32_t offset = 0);
 
     glm::mat4 getModelMatrix() const;
 };

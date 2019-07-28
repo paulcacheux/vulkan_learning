@@ -3,30 +3,14 @@
 #include <iostream>
 
 Game::Game() : _rd(), _gen(_rd()), _distribution() {
-    _scene.vertices = {
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
-    };
-
+    _scene.vertices.clear();
     _scene.indices.clear();
-    _scene.addTriangle({2, 1, 0});
-    _scene.addTriangle({0, 3, 2});
-    _scene.addTriangle({4, 5, 6});
-    _scene.addTriangle({6, 7, 4});
-    _scene.addTriangle({4, 3, 0});
-    _scene.addTriangle({3, 4, 7});
-    _scene.addTriangle({1, 2, 5});
-    _scene.addTriangle({6, 5, 2});
-    _scene.addTriangle({0, 1, 4});
-    _scene.addTriangle({5, 4, 1});
-    _scene.addTriangle({7, 2, 3});
-    _scene.addTriangle({2, 7, 6});
+
+    auto gen = [this]() { return _distribution(_gen); };
+
+    addCube(_scene, {-0.5, -0.5, -0.5}, 0.1, gen);
+    addCube(_scene, {-0.4, -0.4, -0.4}, 0.1, gen);
+    addCube(_scene, {-0.3, -0.3, -0.3}, 0.1, gen);
 }
 
 void Game::update(float dt) {
@@ -65,7 +49,8 @@ void Game::randomChangeScene() {
     for (auto& vertex : _scene.vertices) {
         // change color
         for (std::size_t i = 0; i < 3; ++i) {
-            vertex.color[i] = _distribution(_gen);
+            vertex.color
+                = randomColor([this]() { return _distribution(_gen); });
         }
         // change cube
         /*for (std::size_t i = 0; i < 3; ++i) {

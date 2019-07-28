@@ -34,10 +34,10 @@ Vertex::getAttributeDescriptions() {
 Scene::Scene() : vertices({{{0, 0, 0}, {0, 0, 0}}}), indices({0}) {
 }
 
-void Scene::addTriangle(std::array<uint16_t, 3> id) {
+void Scene::addTriangle(std::array<uint32_t, 3> id, uint32_t offset) {
     indices.reserve(indices.size() + id.size());
     for (auto i : id) {
-        indices.push_back(i);
+        indices.push_back(i + offset);
     }
 }
 
