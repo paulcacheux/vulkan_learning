@@ -71,9 +71,10 @@ void Game::randomChangeScene() {
             vertex.pos[i] += (_distribution(_gen) - 0.5) / 10;
         }
     }
+    sceneHasChanged = true;
 }
 
-const scene::Scene& Game::getScene() const {
+scene::Scene Game::getScene() const {
     return _scene;
 }
 

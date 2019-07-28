@@ -28,10 +28,12 @@ class Game {
     void setNewMouseInput(double xpos, double ypos);
     void randomChangeScene();
 
-    const scene::Scene& getScene() const;
+    scene::Scene getScene() const;
     const scene::Camera& getCamera() const;
     scene::Camera& getCamera();
     glm::mat4 getModelMatrix() const;
+
+    bool sceneHasChanged = false;
 
   private:
     scene::Scene _scene;

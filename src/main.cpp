@@ -23,7 +23,8 @@ int main() {
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
 
         Game game;
-        vulkan::Renderer renderer(window, &game.getScene());
+        auto scene = game.getScene();
+        vulkan::Renderer renderer(window, &scene);
 
         app::GameRendererCoupler coupler{game, renderer};
         window.linkToCoupler(&coupler);
@@ -53,8 +54,11 @@ int main() {
             context.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dtf);
-            renderer.setScene(
-                &game.getScene()); // TODO set scene only when changes occured
+            if (game.sceneHasChanged) {
+                scene = game.getScene();
+                renderer.setScene(&scene);
+                game.sceneHasChanged = false;
+            }
             renderer.drawFrame();
         }
         renderer.deviceWaitIdle();
