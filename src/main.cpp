@@ -6,6 +6,7 @@
 #include <chrono>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -14,8 +15,45 @@
 #include "vulkan/renderer.hpp"
 #include "window.hpp"
 
-const std::size_t WIDTH = 800;
-const std::size_t HEIGHT = 600;
+const std::size_t WIDTH = 1000;
+const std::size_t HEIGHT = 800;
+
+class FpsWatcher {
+  public:
+    using duration = std::chrono::duration<float, std::chrono::seconds::period>;
+    using time_point
+        = std::chrono::time_point<std::chrono::high_resolution_clock>;
+    using clock = std::chrono::high_resolution_clock;
+
+    FpsWatcher(int maxFps)
+        : _minFrameDuration(1 / static_cast<float>(maxFps)),
+          _lastTime(clock::now()), _lastPrintTime(clock::now()), _counter(0) {
+    }
+
+    std::optional<duration> checkFps() {
+        auto currentTime = clock::now();
+        if (duration(currentTime - _lastPrintTime) > duration(1.0f)) {
+            std::cout << "FPS: " << _counter << "\n";
+            _counter = 0;
+            _lastPrintTime = currentTime;
+        }
+
+        auto dt = duration(currentTime - _lastTime);
+        if (dt < _minFrameDuration) {
+            auto diff = _minFrameDuration - dt;
+            std::this_thread::sleep_for(diff);
+            return {};
+        }
+        _lastTime = clock::now();
+        ++_counter;
+        return dt;
+    }
+
+  private:
+    duration _minFrameDuration;
+    time_point _lastTime, _lastPrintTime;
+    int _counter;
+};
 
 int main() {
     try {
@@ -31,30 +69,17 @@ int main() {
         window.linkToCoupler(&coupler);
         window.switchToRawMouseMode();
 
-        auto maxFps = 200;
-        auto frameMinDuration
-            = std::chrono::duration<float, std::chrono::seconds::period>(
-                1 / (float)maxFps);
+        FpsWatcher fps(200);
 
-        auto lastTime = std::chrono::high_resolution_clock::now();
         while (!window.shouldClose()) {
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            auto dt
-                = std::chrono::duration<float, std::chrono::seconds::period>(
-                    currentTime - lastTime);
-            if (dt < frameMinDuration) {
-                auto diff = frameMinDuration - dt;
-                std::this_thread::sleep_for(diff);
+            auto dt = fps.checkFps();
+            if (!dt) {
                 continue;
             }
 
-            lastTime = currentTime;
-            float dtf = dt.count();
-            std::cout << "FPS: " << 1 / dtf << "\n";
-
             context.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
-            game.update(dtf);
+            game.update(dt->count());
             if (game.sceneHasChanged) {
                 scene = game.getScene();
                 renderer.setScene(&scene);

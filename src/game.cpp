@@ -14,7 +14,7 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
 }
 
 void Game::update(float dt) {
-    float speed = 2.0f;
+    float speed = 1.8f;
     auto offset = dt * speed;
 #define UPDATE(dir)                                                            \
     if (getInputState(InputState::dir)) {                                      \
@@ -26,7 +26,7 @@ void Game::update(float dt) {
     UPDATE(Down)
     UPDATE(Front)
     UPDATE(Back)
-    _camera.updateViewTarget(0.004f * _currentMouseVec);
+    _camera.updateViewTarget(0.0038f * _currentMouseVec);
     _currentMouseVec = glm::vec2(.0f);
 }
 
