@@ -1,7 +1,5 @@
 #include "scene.hpp"
 
-#include <iostream>
-
 namespace scene {
 
 VkVertexInputBindingDescription Vertex::getBindingDescription() {

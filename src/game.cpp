@@ -8,9 +8,13 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
 
     auto gen = [this]() { return _distribution(_gen); };
 
-    addCube(_scene, {-0.5, -0.5, -0.5}, 0.1, gen);
-    addCube(_scene, {-0.4, -0.4, -0.4}, 0.1, gen);
-    addCube(_scene, {-0.3, -0.3, -0.3}, 0.1, gen);
+    for (auto a = 0.0f; a < 0.3; a += 0.1f) {
+        for (auto b = 0.0f; b < 0.3; b += 0.1f) {
+            for (auto c = 0.0f; c < 0.3; c += 0.1f) {
+                addCube(_scene, {-0.3 + a, -0.3 + b, -0.3 + c}, 0.1, gen);
+            }
+        }
+    }
 }
 
 void Game::update(float dt) {

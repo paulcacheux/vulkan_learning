@@ -1,8 +1,7 @@
 #ifndef VERTEX_TUTO_HPP
 #define VERTEX_TUTO_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include <array>
 #define GLM_FORCE_RADIANS

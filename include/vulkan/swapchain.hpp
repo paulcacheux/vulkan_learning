@@ -1,8 +1,7 @@
 #ifndef VULKAN_SWAPCHAIN_TUTO_HPP
 #define VULKAN_SWAPCHAIN_TUTO_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include <cstring>
 #include <memory>
