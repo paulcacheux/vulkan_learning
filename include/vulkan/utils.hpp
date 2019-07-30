@@ -78,11 +78,13 @@ uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
                         VkPhysicalDevice device);
 
 VkImageView createImageView(VkImage image, VkFormat format,
-                            VkImageAspectFlags aspectFlags, VkDevice device);
+                            VkImageAspectFlags aspectFlags, uint32_t mipLevels,
+                            VkDevice device);
 
 void transitionImageLayout(VkImage image, VkFormat format,
                            VkImageLayout oldLayout, VkImageLayout newLayout,
-                           Device& device, VkCommandPool commandPool);
+                           uint32_t mipLevels, Device& device,
+                           VkCommandPool commandPool);
 
 bool hasStencilComponent(VkFormat format);
 

@@ -12,10 +12,10 @@ Texture::Texture(const std::string& path, BufferManager& bufferManager,
                  Device& device, VkCommandPool commandPool)
     : _bufferManager(bufferManager), _device(device) {
 
-    textureImage = _createTextureImage(path, commandPool);
-    textureImageView
-        = utils::createImageView(textureImage.image, VK_FORMAT_R8G8B8A8_UNORM,
-                                 VK_IMAGE_ASPECT_COLOR_BIT, device.device);
+    std::tie(textureImage, mipLevels) = _createTextureImage(path, commandPool);
+    textureImageView = utils::createImageView(
+        textureImage.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
+        mipLevels, device.device);
 }
 
 Texture::~Texture() {
@@ -23,11 +23,16 @@ Texture::~Texture() {
     _bufferManager.destroyImage(textureImage);
 }
 
-Image Texture::_createTextureImage(const std::string& path,
-                                   VkCommandPool commandPool) {
+std::pair<Image, uint32_t>
+Texture::_createTextureImage(const std::string& path,
+                             VkCommandPool commandPool) {
     int width, height, channels;
     stbi_uc* pixels
         = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+    uint32_t mipLevels
+        = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height))))
+          + 1;
 
     VkDeviceSize size = width * height * 4; // 4 because RGBA
 
@@ -46,24 +51,25 @@ Image Texture::_createTextureImage(const std::string& path,
 
     auto format = VK_FORMAT_R8G8B8A8_UNORM;
     auto image = _bufferManager.createImage(
-        width, height, format, VK_IMAGE_TILING_OPTIMAL,
+        width, height, mipLevels, format, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
 
     utils::transitionImageLayout(image.image, format, VK_IMAGE_LAYOUT_UNDEFINED,
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, _device,
-                                 commandPool);
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 mipLevels, _device, commandPool);
 
     _bufferManager.copyBufferToImage(stagingBuffer.buffer, image.image, width,
                                      height, commandPool);
 
-    utils::transitionImageLayout(
-        image.image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, _device, commandPool);
+    utils::transitionImageLayout(image.image, format,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 mipLevels, _device, commandPool);
 
     _bufferManager.destroyBuffer(stagingBuffer);
 
-    return image;
+    return std::make_pair(image, mipLevels);
 }
 
 } // namespace vulkan

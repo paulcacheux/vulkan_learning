@@ -36,8 +36,8 @@ Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 }
 
 Image BufferManager::createImage(uint32_t width, uint32_t height,
-                                 VkFormat format, VkImageTiling tiling,
-                                 VkImageUsageFlags usage,
+                                 uint32_t mipLevels, VkFormat format,
+                                 VkImageTiling tiling, VkImageUsageFlags usage,
                                  VmaMemoryUsage vmaUsage) {
     VkImageCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -45,7 +45,7 @@ Image BufferManager::createImage(uint32_t width, uint32_t height,
     createInfo.extent.width = width;
     createInfo.extent.height = height;
     createInfo.extent.depth = 1;
-    createInfo.mipLevels = 1;
+    createInfo.mipLevels = mipLevels;
     createInfo.arrayLayers = 1;
 
     createInfo.format = format;

@@ -180,7 +180,7 @@ Swapchain::_createImageViews(std::vector<VkImage> images, VkFormat format) {
 
     for (std::size_t i = 0; i < count; ++i) {
         imageViews[i] = utils::createImageView(
-            images[i], format, VK_IMAGE_ASPECT_COLOR_BIT, device());
+            images[i], format, VK_IMAGE_ASPECT_COLOR_BIT, 1, device());
     }
 
     std::vector<SwapchainBuffer> buffers;

@@ -34,9 +34,9 @@ class BufferManager {
 
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
-    Image createImage(uint32_t width, uint32_t height, VkFormat format,
-                      VkImageTiling tiling, VkImageUsageFlags usage,
-                      VmaMemoryUsage vmaUsage);
+    Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
+                      VkFormat format, VkImageTiling tiling,
+                      VkImageUsageFlags usage, VmaMemoryUsage vmaUsage);
     template <class T>
     Buffer createTwoLevelBuffer(const std::vector<T>& sceneData,
                                 VkBufferUsageFlags addUsage,

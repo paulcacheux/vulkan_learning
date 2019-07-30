@@ -276,7 +276,8 @@ uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
 }
 
 VkImageView createImageView(VkImage image, VkFormat format,
-                            VkImageAspectFlags aspectFlags, VkDevice device) {
+                            VkImageAspectFlags aspectFlags, uint32_t mipLevels,
+                            VkDevice device) {
     VkImageViewCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     createInfo.image = image;
@@ -290,7 +291,7 @@ VkImageView createImageView(VkImage image, VkFormat format,
 
     createInfo.subresourceRange.aspectMask = aspectFlags;
     createInfo.subresourceRange.baseMipLevel = 0;
-    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.levelCount = mipLevels;
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount = 1;
 
@@ -304,7 +305,8 @@ VkImageView createImageView(VkImage image, VkFormat format,
 
 void transitionImageLayout(VkImage image, VkFormat format,
                            VkImageLayout oldLayout, VkImageLayout newLayout,
-                           Device& device, VkCommandPool commandPool) {
+                           uint32_t mipLevels, Device& device,
+                           VkCommandPool commandPool) {
     auto commandBuffer = device.beginSingleTimeCommands(commandPool);
 
     VkImageMemoryBarrier barrier = {};
@@ -315,7 +317,7 @@ void transitionImageLayout(VkImage image, VkFormat format,
         = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 

@@ -15,12 +15,13 @@ class Texture {
             Device& device, VkCommandPool commandPool);
     ~Texture();
 
+    uint32_t mipLevels;
     Image textureImage;
     VkImageView textureImageView;
 
   private:
-    Image _createTextureImage(const std::string& path,
-                              VkCommandPool commandPool);
+    std::pair<Image, uint32_t> _createTextureImage(const std::string& path,
+                                                   VkCommandPool commandPool);
 
     BufferManager& _bufferManager;
     Device& _device;
