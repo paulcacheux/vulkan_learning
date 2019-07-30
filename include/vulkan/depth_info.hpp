@@ -5,12 +5,17 @@
 #include <vulkan/vulkan.h>
 
 #include "vk_mem_alloc.h"
+#include "vulkan/buffer_manager.hpp"
+
+namespace vulkan {
 
 struct DepthResources {
-    DepthResources(VkPhysicalDevice physicalDevice);
+    DepthResources(Device& device, BufferManager& bufferManager, VkCommandPool,
+                   VkExtent2D scExtent);
+    ~DepthResources();
 
-    VkImage depthImage;
-    VmaAllocation depthImageAllocation;
+    VkFormat depthFormat;
+    Image depthImage;
     VkImageView depthImageView;
 
   private:
@@ -19,7 +24,11 @@ struct DepthResources {
     _findSupportedFormat(const std::vector<VkFormat>& candidates,
                          VkImageTiling tiling, VkFormatFeatureFlags features,
                          VkPhysicalDevice physicalDevice);
-    static bool _hasStencilComponent(VkFormat format);
+
+    Device& _device;
+    BufferManager& _bufferManager;
 };
+
+} // namespace vulkan
 
 #endif

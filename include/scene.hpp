@@ -19,14 +19,16 @@ struct UniformBufferObject {
 };
 
 struct Vertex {
-    Vertex(glm::vec3 pos, glm::vec3 color) : pos(pos), color(color) {
+    Vertex(glm::vec3 pos, glm::vec3 color, glm::vec2 texCoord)
+        : pos(pos), color(color), texCoord(texCoord) {
     }
 
     glm::vec3 pos;
     glm::vec3 color;
+    glm::vec2 texCoord;
 
     static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 2>
+    static std::array<VkVertexInputAttributeDescription, 3>
     getAttributeDescriptions();
 };
 

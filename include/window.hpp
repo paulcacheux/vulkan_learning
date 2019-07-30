@@ -23,6 +23,7 @@ class WindowContext {
 struct GameRendererCoupler {
     Game& game;
     vulkan::Renderer& renderer;
+    bool paused = false;
 };
 
 class Window {

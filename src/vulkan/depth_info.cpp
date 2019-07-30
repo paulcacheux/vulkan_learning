@@ -2,8 +2,30 @@
 
 #include <stdexcept>
 
-DepthResources::DepthResources(VkPhysicalDevice physicalDevice) {
-    VkFormat depthFormat = _findDepthFormat(physicalDevice);
+#include "vulkan/texture.hpp"
+#include "vulkan/utils.hpp"
+
+namespace vulkan {
+
+DepthResources::DepthResources(Device& device, BufferManager& bufferManager,
+                               VkCommandPool commandPool, VkExtent2D scExtent)
+    : _device(device), _bufferManager(bufferManager) {
+
+    depthFormat = _findDepthFormat(device.physicalDevice);
+    depthImage = _bufferManager.createImage(
+        scExtent.width, scExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    depthImageView
+        = utils::createImageView(depthImage.image, depthFormat,
+                                 VK_IMAGE_ASPECT_DEPTH_BIT, _device.device);
+    utils::transitionImageLayout(
+        depthImage.image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, _device, commandPool);
+}
+
+DepthResources::~DepthResources() {
+    vkDestroyImageView(_device.device, depthImageView, nullptr);
+    _bufferManager.destroyImage(depthImage);
 }
 
 VkFormat DepthResources::_findDepthFormat(VkPhysicalDevice physicalDevice) {
@@ -33,7 +55,4 @@ VkFormat DepthResources::_findSupportedFormat(
     throw std::runtime_error("failed to find a supported format");
 }
 
-bool DepthResources::_hasStencilComponent(VkFormat format) {
-    return format == VK_FORMAT_D32_SFLOAT_S8_UINT
-           || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}
+} // namespace vulkan

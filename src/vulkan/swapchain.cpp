@@ -71,6 +71,8 @@ VkDevice Swapchain::device() {
 void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
     std::tie(swapchain, format, extent, imageBuffers)
         = _createSwapChain(width, height);
+    depthResources = std::make_unique<DepthResources>(_device, _bufferManager,
+                                                      _commandPool, extent);
     renderPass = _createRenderPass();
     // depthResources = std::make_unique<DepthResources>();
     pipeline = std::make_unique<Pipeline>(device(), descriptorSetLayout, extent,
@@ -102,6 +104,7 @@ void Swapchain::_cleanup() {
     vkDestroySwapchainKHR(device(), swapchain, nullptr);
     pipeline.reset();
     vkDestroyRenderPass(device(), renderPass, nullptr);
+    depthResources.reset();
 }
 
 std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<SwapchainBuffer>>
@@ -176,7 +179,8 @@ Swapchain::_createImageViews(std::vector<VkImage> images, VkFormat format) {
     std::vector<VkImageView> imageViews(count);
 
     for (std::size_t i = 0; i < count; ++i) {
-        imageViews[i] = utils::createImageView(images[i], format, device());
+        imageViews[i] = utils::createImageView(
+            images[i], format, VK_IMAGE_ASPECT_COLOR_BIT, device());
     }
 
     std::vector<SwapchainBuffer> buffers;
@@ -203,15 +207,34 @@ VkRenderPass Swapchain::_createRenderPass() {
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription depthAttachment = {};
+    depthAttachment.format = depthResources->depthFormat;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout
+        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef = {};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout
+        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
+    std::array<VkAttachmentDescription, 2> attachments
+        = {colorAttachment, depthAttachment};
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.attachmentCount = attachments.size();
+    renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
@@ -240,13 +263,14 @@ std::vector<VkFramebuffer> Swapchain::_createFramebuffers() {
     std::vector<VkFramebuffer> framebuffers(imageBuffers.size());
 
     for (std::size_t i = 0; i < imageBuffers.size(); ++i) {
-        VkImageView attachments[] = {imageBuffers[i].imageView};
+        std::array<VkImageView, 2> attachments
+            = {imageBuffers[i].imageView, depthResources->depthImageView};
 
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = renderPass;
-        fbInfo.attachmentCount = 1;
-        fbInfo.pAttachments = attachments;
+        fbInfo.attachmentCount = attachments.size();
+        fbInfo.pAttachments = attachments.data();
         fbInfo.width = extent.width;
         fbInfo.height = extent.height;
         fbInfo.layers = 1;
@@ -261,14 +285,23 @@ std::vector<VkFramebuffer> Swapchain::_createFramebuffers() {
 }
 
 VkDescriptorPool Swapchain::_createDescriptorPool() {
-    VkDescriptorPoolSize poolSize = {};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(imageBuffers.size());
+    uint32_t size = static_cast<uint32_t>(imageBuffers.size());
+    VkDescriptorPoolSize uniformPoolSize = {};
+    uniformPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformPoolSize.descriptorCount = size;
+
+    VkDescriptorPoolSize samplerPoolSize = {};
+    samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerPoolSize.descriptorCount = size;
+
+    std::array<VkDescriptorPoolSize, 2> poolSizes
+        = {uniformPoolSize, samplerPoolSize};
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = poolSizes.size();
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = size;
 
     poolInfo.maxSets = static_cast<uint32_t>(imageBuffers.size());
 
@@ -288,10 +321,20 @@ VkDescriptorSetLayout Swapchain::_createDescriptorSetLayout() {
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding samplerBinding = {};
+    samplerBinding.binding = 1;
+    samplerBinding.descriptorCount = 1;
+    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerBinding.pImmutableSamplers = nullptr;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings
+        = {uboLayoutBinding, samplerBinding};
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = bindings.size();
+    layoutInfo.pBindings = bindings.data();
 
     VkDescriptorSetLayout descriptorSetLayout;
     if (vkCreateDescriptorSetLayout(device(), &layoutInfo, nullptr,
@@ -325,20 +368,38 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(scene::UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite = {};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
+        VkDescriptorImageInfo imageInfo = {};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = texture->textureImageView;
+        imageInfo.sampler = sampler->sampler;
 
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
+        VkWriteDescriptorSet descriptorWriteUniform = {};
+        descriptorWriteUniform.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWriteUniform.dstSet = descriptorSets[i];
+        descriptorWriteUniform.dstBinding = 0;
+        descriptorWriteUniform.dstArrayElement = 0;
+        descriptorWriteUniform.descriptorType
+            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWriteUniform.descriptorCount = 1;
+        descriptorWriteUniform.pBufferInfo = &bufferInfo;
+        descriptorWriteUniform.pImageInfo = nullptr;
+        descriptorWriteUniform.pTexelBufferView = nullptr;
 
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        descriptorWrite.pImageInfo = nullptr;
-        descriptorWrite.pTexelBufferView = nullptr;
+        VkWriteDescriptorSet descriptorWriteSampler = {};
+        descriptorWriteSampler.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWriteSampler.dstSet = descriptorSets[i];
+        descriptorWriteSampler.dstBinding = 1;
+        descriptorWriteSampler.dstArrayElement = 0;
+        descriptorWriteSampler.descriptorType
+            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWriteSampler.descriptorCount = 1;
+        descriptorWriteSampler.pImageInfo = &imageInfo;
 
-        vkUpdateDescriptorSets(device(), 1, &descriptorWrite, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> dws
+            = {descriptorWriteUniform, descriptorWriteSampler};
+
+        vkUpdateDescriptorSets(device(), static_cast<uint32_t>(dws.size()),
+                               dws.data(), 0, nullptr);
     }
 
     return descriptorSets;
@@ -377,9 +438,12 @@ Swapchain::_createCommandBuffers(const scene::Scene& scene) {
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = extent;
 
-        VkClearValue clearColor = {{{0.7f, 0.7f, 1.0f, 1.0f}}}; // yes 3 braces
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
+        std::array<VkClearValue, 2> clearColors;
+        clearColors[0].color = {{0.7f, 0.7f, 1.0f, 1.0f}}; // yes 3 braces
+        clearColors[1].depthStencil = {1.0f, 0};
+
+        renderPassInfo.clearValueCount = clearColors.size();
+        renderPassInfo.pClearValues = clearColors.data();
 
         vkCmdBeginRenderPass(buffers[i], &renderPassInfo,
                              VK_SUBPASS_CONTENTS_INLINE);

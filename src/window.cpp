@@ -107,6 +107,19 @@ void key_callback(GLFWwindow* window, int key, int /*scancode*/, int action,
         coupler->game.setInputState(InputState::Right, pressed);
     } else if (key == GLFW_KEY_U && pressed) {
         coupler->game.randomChangeScene();
+    } else if (key == GLFW_KEY_P && pressed) {
+        if (coupler->paused) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            if (glfwRawMouseMotionSupported()) {
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            }
+            glfwSetCursorPosCallback(window, mouse_pos_callback);
+        } else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            glfwSetCursorPosCallback(window, nullptr);
+        }
+        coupler->paused ^= true;
     }
 }
 

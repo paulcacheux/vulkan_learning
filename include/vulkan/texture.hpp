@@ -22,11 +22,6 @@ class Texture {
     Image _createTextureImage(const std::string& path,
                               VkCommandPool commandPool);
 
-    static void _transitionImageLayout(VkImage image, VkFormat format,
-                                       VkImageLayout oldLayout,
-                                       VkImageLayout newLayout, Device& device,
-                                       VkCommandPool commandPool);
-
     BufferManager& _bufferManager;
     Device& _device;
 };

@@ -59,21 +59,21 @@ template <class R>
 void addCube(scene::Scene& scene, glm::vec3 origin, float width, R rand) {
     auto indexOffset = scene.vertices.size();
 
-    scene.vertices.emplace_back(origin, randomColor(rand));
+    scene.vertices.emplace_back(origin, randomColor(rand), glm::vec2{1.0, 0.0});
     scene.vertices.emplace_back(origin + glm::vec3(width, 0, 0),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{0.0, 0.0});
     scene.vertices.emplace_back(origin + glm::vec3(width, width, 0),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{0.0, 1.0});
     scene.vertices.emplace_back(origin + glm::vec3(0, width, 0),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{1.0, 1.0});
     scene.vertices.emplace_back(origin + glm::vec3(0, 0, width),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{1.0, 0.0});
     scene.vertices.emplace_back(origin + glm::vec3(width, 0, width),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{0.0, 0.0});
     scene.vertices.emplace_back(origin + glm::vec3(width, width, width),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{0.0, 1.0});
     scene.vertices.emplace_back(origin + glm::vec3(0, width, width),
-                                randomColor(rand));
+                                randomColor(rand), glm::vec2{1.0, 1.0});
 
     scene.addTriangle({2, 1, 0}, indexOffset);
     scene.addTriangle({0, 3, 2}, indexOffset);

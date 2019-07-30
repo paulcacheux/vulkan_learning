@@ -7,6 +7,10 @@
 #include <optional>
 #include <vector>
 
+namespace vulkan {
+class Device;
+}
+
 namespace vulkan::utils {
 
 const std::vector<const char*> validationLayers
@@ -73,7 +77,14 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
                         VkPhysicalDevice device);
 
-VkImageView createImageView(VkImage image, VkFormat format, VkDevice device);
+VkImageView createImageView(VkImage image, VkFormat format,
+                            VkImageAspectFlags aspectFlags, VkDevice device);
+
+void transitionImageLayout(VkImage image, VkFormat format,
+                           VkImageLayout oldLayout, VkImageLayout newLayout,
+                           Device& device, VkCommandPool commandPool);
+
+bool hasStencilComponent(VkFormat format);
 
 } // namespace vulkan::utils
 
