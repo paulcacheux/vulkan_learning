@@ -21,19 +21,32 @@ struct Buffer {
     void destroy(VmaAllocator allocator);
 };
 
+struct Image {
+    VkImage image;
+    VmaAllocation allocation;
+
+    void destroy(VmaAllocator allocator);
+};
+
 class BufferManager {
   public:
     BufferManager(Device* device, VmaAllocator allocator);
 
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
+    Image createImage(uint32_t width, uint32_t height, VkFormat format,
+                      VkImageTiling tiling, VkImageUsageFlags usage,
+                      VmaMemoryUsage vmaUsage);
     template <class T>
     Buffer createTwoLevelBuffer(const std::vector<T>& sceneData,
                                 VkBufferUsageFlags addUsage,
                                 VkCommandPool commandPool);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,
                     VkCommandPool commandPool);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
+                           uint32_t height, VkCommandPool commandPool);
     void destroyBuffer(Buffer buffer);
+    void destroyImage(Image image);
 
     VmaAllocator allocator;
 

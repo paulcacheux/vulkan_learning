@@ -15,6 +15,8 @@ Swapchain::Swapchain(Device& device, VkCommandPool commandPool,
 
     descriptorSetLayout = _createDescriptorSetLayout();
     scene::Scene emptyScene;
+    texture = std::make_unique<Texture>("../textures/texture.jpg",
+                                        _bufferManager, _device, _commandPool);
     vertexBuffer = _createVertexBuffer(emptyScene.vertices, commandPool);
     indexBuffer = _createIndexBuffer(emptyScene.indices, commandPool);
 
@@ -26,6 +28,7 @@ Swapchain::~Swapchain() {
 
     _bufferManager.destroyBuffer(vertexBuffer);
     _bufferManager.destroyBuffer(indexBuffer);
+    texture.reset();
 
     vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
     for (auto& uniformBuffer : uniformBuffers) {
@@ -68,6 +71,7 @@ void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
     std::tie(swapchain, format, extent, imageBuffers)
         = _createSwapChain(width, height);
     renderPass = _createRenderPass();
+    // depthResources = std::make_unique<DepthResources>();
     pipeline = std::make_unique<Pipeline>(device(), descriptorSetLayout, extent,
                                           renderPass);
     swapchainFramebuffers = _createFramebuffers();

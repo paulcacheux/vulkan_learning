@@ -11,7 +11,9 @@
 #include "buffer_manager.hpp"
 #include "scene.hpp"
 #include "vk_mem_alloc.h"
+#include "vulkan/depth_info.hpp"
 #include "vulkan/pipeline.hpp"
+#include "vulkan/texture.hpp"
 
 namespace app {
 class Window;
@@ -57,6 +59,11 @@ struct Swapchain {
     std::vector<Buffer> uniformBuffers;
     Buffer vertexBuffer;
     Buffer indexBuffer;
+
+    // textures
+    std::unique_ptr<Texture> texture;
+
+    std::unique_ptr<DepthResources> depthResources;
 
   private:
     void _innerInit(int width, int height, const scene::Scene& scene);

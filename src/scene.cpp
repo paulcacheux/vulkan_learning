@@ -46,7 +46,7 @@ glm::mat4 Scene::getModelMatrix() const {
 Camera::Camera() {
     eye = glm::vec3(1, 0, 3);
     // eye = 2.0f * glm::vec3(1.0f);
-    center = glm::vec3(0.0f);
+    center = glm::vec3(-0.4, -0.4, -0.4);
 }
 
 void Camera::moveLeft(float offset) {

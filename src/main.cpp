@@ -90,7 +90,7 @@ int main() {
         }
         renderer.deviceWaitIdle();
 
-    } catch (std::exception e) {
+    } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
 

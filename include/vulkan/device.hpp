@@ -12,6 +12,10 @@ class Device {
     void init(GLFWwindow* window, VkInstance instance);
     void destroy();
 
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool commandPool);
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer,
+                               VkCommandPool commandPool);
+
     VkSurfaceKHR surface;
     VkPhysicalDevice physicalDevice;
     VkDevice device;

@@ -6,6 +6,10 @@ void Buffer::destroy(VmaAllocator allocator) {
     vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
+void Image::destroy(VmaAllocator allocator) {
+    vmaDestroyImage(allocator, image, allocation);
+}
+
 BufferManager::BufferManager(Device* device, VmaAllocator allocator)
     : allocator(allocator), _device(device) {
 }
@@ -23,28 +27,56 @@ Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 
     VkBuffer buffer;
     VmaAllocation allocation;
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation,
-                    nullptr);
+    if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer,
+                        &allocation, nullptr)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create buffer");
+    }
     return Buffer{buffer, allocation};
+}
+
+Image BufferManager::createImage(uint32_t width, uint32_t height,
+                                 VkFormat format, VkImageTiling tiling,
+                                 VkImageUsageFlags usage,
+                                 VmaMemoryUsage vmaUsage) {
+    VkImageCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    createInfo.imageType = VK_IMAGE_TYPE_2D;
+    createInfo.extent.width = width;
+    createInfo.extent.height = height;
+    createInfo.extent.depth = 1;
+    createInfo.mipLevels = 1;
+    createInfo.arrayLayers = 1;
+
+    createInfo.format = format;
+    createInfo.tiling = tiling;
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    createInfo.usage = usage;
+    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    createInfo.flags = 0;
+
+    VmaAllocationCreateInfo allocInfo = {};
+
+    // hack for intel integrated graphics. Can be safely removed.
+    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    // end hack
+    allocInfo.usage = vmaUsage;
+
+    VkImage image;
+    VmaAllocation allocation;
+    if (vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation,
+                       nullptr)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image");
+    }
+    return Image{image, allocation};
 }
 
 void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
                                VkDeviceSize size, VkCommandPool commandPool) {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool
-        = commandPool; // TODO: maybe use a different specific command pool
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(_device->device, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    auto commandBuffer = _device->beginSingleTimeCommands(commandPool);
 
     VkBufferCopy copyRegion = {};
     copyRegion.srcOffset = 0;
@@ -52,21 +84,39 @@ void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    vkEndCommandBuffer(commandBuffer);
+    _device->endSingleTimeCommands(commandBuffer, commandPool);
+}
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+void BufferManager::copyBufferToImage(VkBuffer buffer, VkImage image,
+                                      uint32_t width, uint32_t height,
+                                      VkCommandPool commandPool) {
+    auto commandBuffer = _device->beginSingleTimeCommands(commandPool);
 
-    vkQueueSubmit(_device->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(_device->graphicsQueue);
+    VkBufferImageCopy region = {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
 
-    vkFreeCommandBuffers(_device->device, commandPool, 1, &commandBuffer);
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    _device->endSingleTimeCommands(commandBuffer, commandPool);
 }
 
 void BufferManager::destroyBuffer(Buffer buffer) {
     buffer.destroy(allocator);
+}
+
+void BufferManager::destroyImage(Image image) {
+    image.destroy(allocator);
 }
 
 } // namespace vulkan
