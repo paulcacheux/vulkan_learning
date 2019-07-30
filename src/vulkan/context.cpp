@@ -1,4 +1,4 @@
-#include "vulkan/device.hpp"
+#include "vulkan/context.hpp"
 #include "vulkan/utils.hpp"
 
 #include <map>
@@ -7,17 +7,31 @@
 
 namespace vulkan {
 
-void Device::init(GLFWwindow* window, VkInstance instance) {
+Context::Context(GLFWwindow* window) {
+    instance = _createInstance();
+    debugMessenger = _setupDebugMessenger();
+
     surface = _createSurface(window, instance);
     physicalDevice = _pickPhysicalDevice(instance);
     std::tie(device, graphicsQueue, presentQueue) = _createLogicalDevice();
+    allocator = _createAllocator();
+    commandPool = _createCommandPool();
 }
 
-void Device::destroy() {
+void Context::destroy() {
+    vkDestroyCommandPool(device, commandPool, nullptr);
+
+    vmaDestroyAllocator(allocator);
+
+    if (utils::enableValidationLayers) {
+        utils::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+    }
+
     vkDestroyDevice(device, nullptr);
+    vkDestroyInstance(instance, nullptr);
 }
 
-VkCommandBuffer Device::beginSingleTimeCommands(VkCommandPool commandPool) {
+VkCommandBuffer Context::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -36,8 +50,7 @@ VkCommandBuffer Device::beginSingleTimeCommands(VkCommandPool commandPool) {
     return commandBuffer;
 }
 
-void Device::endSingleTimeCommands(VkCommandBuffer commandBuffer,
-                                   VkCommandPool commandPool) {
+void Context::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo = {};
@@ -51,7 +64,46 @@ void Device::endSingleTimeCommands(VkCommandBuffer commandBuffer,
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-VkSurfaceKHR Device::_createSurface(GLFWwindow* window, VkInstance instance) {
+VkInstance Context::_createInstance() {
+    if (utils::enableValidationLayers
+        && !utils::checkValidationLayerSupport()) {
+        throw std::runtime_error(
+            "validation layer requested, but not available");
+    }
+
+    auto appInfo = utils::makeAppInfo();
+
+    VkInstanceCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pApplicationInfo = &appInfo;
+
+    // glfw extensions
+    auto extensions = utils::getRequiredExtensions();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    createInfo.ppEnabledExtensionNames = extensions.data();
+
+    // validation layers
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+    if (utils::enableValidationLayers) {
+        createInfo.enabledLayerCount
+            = static_cast<uint32_t>(utils::validationLayers.size());
+        createInfo.ppEnabledLayerNames = utils::validationLayers.data();
+
+        debugCreateInfo = utils::makeDebugMessengerCreateInfo();
+        createInfo.pNext = &debugCreateInfo;
+    } else {
+        createInfo.enabledLayerCount = 0;
+        createInfo.pNext = nullptr;
+    }
+
+    VkInstance instance;
+    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create instance");
+    }
+    return instance;
+}
+
+VkSurfaceKHR Context::_createSurface(GLFWwindow* window, VkInstance instance) {
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface)
         != VK_SUCCESS) {
@@ -60,7 +112,7 @@ VkSurfaceKHR Device::_createSurface(GLFWwindow* window, VkInstance instance) {
     return surface;
 }
 
-VkPhysicalDevice Device::_pickPhysicalDevice(VkInstance instance) {
+VkPhysicalDevice Context::_pickPhysicalDevice(VkInstance instance) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -86,7 +138,7 @@ VkPhysicalDevice Device::_pickPhysicalDevice(VkInstance instance) {
     }
 }
 
-std::tuple<VkDevice, VkQueue, VkQueue> Device::_createLogicalDevice() {
+std::tuple<VkDevice, VkQueue, VkQueue> Context::_createLogicalDevice() {
     utils::QueueFamilyIndices indices
         = utils::findQueueFamilies(physicalDevice, surface);
 
@@ -139,6 +191,49 @@ std::tuple<VkDevice, VkQueue, VkQueue> Device::_createLogicalDevice() {
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
     return std::make_tuple(device, graphicsQueue, presentQueue);
+}
+
+VmaAllocator Context::_createAllocator() {
+    VmaAllocatorCreateInfo allocInfo = {};
+    allocInfo.physicalDevice = physicalDevice;
+    allocInfo.device = device;
+
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocInfo, &allocator);
+    return allocator;
+}
+
+VkCommandPool Context::_createCommandPool() {
+    auto queueFamilyIndices = utils::findQueueFamilies(physicalDevice, surface);
+
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    poolInfo.flags = 0;
+
+    VkCommandPool commandPool;
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool)
+        != VK_SUCCESS) {
+        throw std::runtime_error("failed to create command pool");
+    }
+
+    return commandPool;
+}
+
+VkDebugUtilsMessengerEXT Context::_setupDebugMessenger() {
+    if (utils::enableValidationLayers) {
+        auto createInfo = utils::makeDebugMessengerCreateInfo();
+        VkDebugUtilsMessengerEXT debugMessenger;
+
+        if (utils::CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
+                                                &debugMessenger)
+            != VK_SUCCESS) {
+            throw std::runtime_error("failed to set up debug messenger");
+        }
+        return debugMessenger;
+    } else {
+        return nullptr;
+    }
 }
 
 } // namespace vulkan

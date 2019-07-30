@@ -1,9 +1,9 @@
 #include "vulkan/sampler.hpp"
-#include "vulkan/device.hpp"
+#include "vulkan/context.hpp"
 
 namespace vulkan {
 
-Sampler::Sampler(Device& device, uint32_t mipLevels) : _device(device) {
+Sampler::Sampler(Context& context, uint32_t mipLevels) : _context(context) {
     VkSamplerCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     createInfo.magFilter = VK_FILTER_LINEAR;
@@ -24,14 +24,14 @@ Sampler::Sampler(Device& device, uint32_t mipLevels) : _device(device) {
     createInfo.minLod = 0.0f;
     createInfo.maxLod = static_cast<float>(mipLevels);
 
-    if (vkCreateSampler(_device.device, &createInfo, nullptr, &sampler)
+    if (vkCreateSampler(_context.device, &createInfo, nullptr, &sampler)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create sampler");
     }
 }
 
 Sampler::~Sampler() {
-    vkDestroySampler(_device.device, sampler, nullptr);
+    vkDestroySampler(_context.device, sampler, nullptr);
 }
 
 } // namespace vulkan

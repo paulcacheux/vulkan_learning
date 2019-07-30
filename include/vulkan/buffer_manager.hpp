@@ -10,7 +10,7 @@
 
 #include "scene.hpp"
 #include "vk_mem_alloc.h"
-#include "vulkan/device.hpp"
+#include "vulkan/context.hpp"
 
 namespace vulkan {
 
@@ -30,7 +30,7 @@ struct Image {
 
 class BufferManager {
   public:
-    BufferManager(Device* device, VmaAllocator allocator);
+    BufferManager(Context& context, VmaAllocator allocator);
 
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
@@ -39,25 +39,22 @@ class BufferManager {
                       VkImageUsageFlags usage, VmaMemoryUsage vmaUsage);
     template <class T>
     Buffer createTwoLevelBuffer(const std::vector<T>& sceneData,
-                                VkBufferUsageFlags addUsage,
-                                VkCommandPool commandPool);
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size,
-                    VkCommandPool commandPool);
+                                VkBufferUsageFlags addUsage);
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
-                           uint32_t height, VkCommandPool commandPool);
+                           uint32_t height);
     void destroyBuffer(Buffer buffer);
     void destroyImage(Image image);
 
     VmaAllocator allocator;
 
   private:
-    Device* _device;
+    Context& _context;
 };
 
 template <class T>
 Buffer BufferManager::createTwoLevelBuffer(const std::vector<T>& sceneData,
-                                           VkBufferUsageFlags addUsage,
-                                           VkCommandPool commandPool) {
+                                           VkBufferUsageFlags addUsage) {
     auto size = sizeof(T) * sceneData.size();
     auto buffer
         = createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | addUsage,
@@ -70,7 +67,7 @@ Buffer BufferManager::createTwoLevelBuffer(const std::vector<T>& sceneData,
     std::memcpy(data, sceneData.data(), static_cast<std::size_t>(size));
     vmaUnmapMemory(allocator, stagingBuffer.allocation);
 
-    copyBuffer(stagingBuffer.buffer, buffer.buffer, size, commandPool);
+    copyBuffer(stagingBuffer.buffer, buffer.buffer, size);
 
     stagingBuffer.destroy(allocator);
 

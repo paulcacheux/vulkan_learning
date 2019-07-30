@@ -7,27 +7,26 @@
 
 namespace vulkan {
 
-DepthResources::DepthResources(Device& device, BufferManager& bufferManager,
-                               VkCommandPool commandPool, VkExtent2D scExtent)
-    : _device(device), _bufferManager(bufferManager) {
+DepthResources::DepthResources(Context& context, BufferManager& bufferManager,
+                               VkExtent2D scExtent)
+    : _context(context), _bufferManager(bufferManager) {
 
     uint32_t mipLevels = 1;
-    depthFormat = _findDepthFormat(device.physicalDevice);
+    depthFormat = _findDepthFormat(_context.physicalDevice);
     depthImage = _bufferManager.createImage(
         scExtent.width, scExtent.height, mipLevels, depthFormat,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
     depthImageView = utils::createImageView(depthImage.image, depthFormat,
                                             VK_IMAGE_ASPECT_DEPTH_BIT,
-                                            mipLevels, _device.device);
+                                            mipLevels, _context.device);
     utils::transitionImageLayout(
         depthImage.image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, mipLevels, _device,
-        commandPool);
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, mipLevels, _context);
 }
 
 DepthResources::~DepthResources() {
-    vkDestroyImageView(_device.device, depthImageView, nullptr);
+    vkDestroyImageView(_context.device, depthImageView, nullptr);
     _bufferManager.destroyImage(depthImage);
 }
 

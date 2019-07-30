@@ -9,7 +9,7 @@
 #include <tuple>
 #include <vector>
 
-#include "device.hpp"
+#include "context.hpp"
 #include "game.hpp"
 #include "scene.hpp"
 #include "swapchain.hpp"
@@ -31,7 +31,7 @@ class Renderer {
     };
 
   public:
-    Renderer(const app::Window& appWindow);
+    Renderer(const app::Window& appWindow, Context& context);
     ~Renderer();
 
     bool checkValidationLayerSupport();
@@ -49,23 +49,17 @@ class Renderer {
     VkDevice device();
     VmaAllocator allocator();
 
+    std::unique_ptr<BufferManager> bufferManager;
+    Context& context;
+
   private:
-    VmaAllocator _createAllocator();
-    VkCommandPool _createCommandPool();
     std::vector<const char*> _getRequiredExtensions();
-    VkDebugUtilsMessengerEXT _setupDebugMessenger();
     std::vector<SyncObject> _createSyncObjects();
 
     const scene::Scene* _scene;
     glm::mat4 _viewMatrix;
     const app::Window& _appWindow;
-    VmaAllocator _allocator;
-    VkInstance _instance;
-    VkDebugUtilsMessengerEXT _debugMessenger;
-    Device _device;
     std::unique_ptr<Swapchain> _swapchain;
-    VkCommandPool _commandPool;
-    std::unique_ptr<BufferManager> _bufferManager;
     std::vector<SyncObject> _syncObjects;
     std::size_t currentFrame = 0;
     bool _mustRecreateSwapchain = false;

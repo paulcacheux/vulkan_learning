@@ -12,7 +12,7 @@ namespace vulkan {
 class Texture {
   public:
     Texture(const std::string& path, BufferManager& bufferManager,
-            Device& device, VkCommandPool commandPool);
+            Context& context);
     ~Texture();
 
     uint32_t mipLevels;
@@ -20,14 +20,12 @@ class Texture {
     VkImageView textureImageView;
 
   private:
-    std::pair<Image, uint32_t> _createTextureImage(const std::string& path,
-                                                   VkCommandPool commandPool);
+    std::pair<Image, uint32_t> _createTextureImage(const std::string& path);
     void _generateMipLevels(VkImage image, VkFormat format, uint32_t width,
-                            uint32_t height, uint32_t mipLevels,
-                            VkCommandPool commandPool);
+                            uint32_t height, uint32_t mipLevels);
 
     BufferManager& _bufferManager;
-    Device& _device;
+    Context& _context;
 };
 
 } // namespace vulkan

@@ -9,23 +9,22 @@
 namespace vulkan {
 
 Texture::Texture(const std::string& path, BufferManager& bufferManager,
-                 Device& device, VkCommandPool commandPool)
-    : _bufferManager(bufferManager), _device(device) {
+                 Context& context)
+    : _bufferManager(bufferManager), _context(context) {
 
-    std::tie(textureImage, mipLevels) = _createTextureImage(path, commandPool);
+    std::tie(textureImage, mipLevels) = _createTextureImage(path);
     textureImageView = utils::createImageView(
         textureImage.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT,
-        mipLevels, device.device);
+        mipLevels, _context.device);
 }
 
 Texture::~Texture() {
-    vkDestroyImageView(_device.device, textureImageView, nullptr);
+    vkDestroyImageView(_context.device, textureImageView, nullptr);
     _bufferManager.destroyImage(textureImage);
 }
 
 std::pair<Image, uint32_t>
-Texture::_createTextureImage(const std::string& path,
-                             VkCommandPool commandPool) {
+Texture::_createTextureImage(const std::string& path) {
     int width, height, channels;
     stbi_uc* pixels
         = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
@@ -58,10 +57,10 @@ Texture::_createTextureImage(const std::string& path,
 
     utils::transitionImageLayout(image.image, format, VK_IMAGE_LAYOUT_UNDEFINED,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 mipLevels, _device, commandPool);
+                                 mipLevels, _context);
 
     _bufferManager.copyBufferToImage(stagingBuffer.buffer, image.image, width,
-                                     height, commandPool);
+                                     height);
 
     /*utils::transitionImageLayout(image.image, format,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -69,8 +68,7 @@ Texture::_createTextureImage(const std::string& path,
                                  mipLevels, _device, commandPool);*/
     // the transition ot VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL is done in the
     // mipmap generation
-    _generateMipLevels(image.image, format, width, height, mipLevels,
-                       commandPool);
+    _generateMipLevels(image.image, format, width, height, mipLevels);
 
     _bufferManager.destroyBuffer(stagingBuffer);
 
@@ -78,11 +76,10 @@ Texture::_createTextureImage(const std::string& path,
 }
 
 void Texture::_generateMipLevels(VkImage image, VkFormat format, uint32_t width,
-                                 uint32_t height, uint32_t mipLevels,
-                                 VkCommandPool commandPool) {
+                                 uint32_t height, uint32_t mipLevels) {
 
     VkFormatProperties fProps;
-    vkGetPhysicalDeviceFormatProperties(_device.physicalDevice, format,
+    vkGetPhysicalDeviceFormatProperties(_context.physicalDevice, format,
                                         &fProps);
     if (!(fProps.optimalTilingFeatures
           & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
@@ -90,7 +87,7 @@ void Texture::_generateMipLevels(VkImage image, VkFormat format, uint32_t width,
             "texture image format does not support linear blitting");
     }
 
-    auto commandBuffer = _device.beginSingleTimeCommands(commandPool);
+    auto commandBuffer = _context.beginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -160,7 +157,7 @@ void Texture::_generateMipLevels(VkImage image, VkFormat format, uint32_t width,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &barrier);
 
-    _device.endSingleTimeCommands(commandBuffer, commandPool);
+    _context.endSingleTimeCommands(commandBuffer);
 }
 
 } // namespace vulkan

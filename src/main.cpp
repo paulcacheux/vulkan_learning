@@ -12,6 +12,7 @@
 
 #include "game.hpp"
 #include "scene.hpp"
+#include "vulkan/context.hpp"
 #include "vulkan/renderer.hpp"
 #include "window.hpp"
 
@@ -57,12 +58,14 @@ class FpsWatcher {
 
 int main() {
     try {
-        app::WindowContext context;
+        app::WindowContext windowContext;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
 
         Game game;
         auto scene = game.getScene();
-        vulkan::Renderer renderer(window);
+
+        vulkan::Context context(window.inner());
+        vulkan::Renderer renderer(window, context);
         renderer.setScene(&scene);
 
         app::GameRendererCoupler coupler{game, renderer};
@@ -77,7 +80,7 @@ int main() {
                 continue;
             }
 
-            context.pollEvents();
+            windowContext.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dt->count());
             if (game.sceneHasChanged) {

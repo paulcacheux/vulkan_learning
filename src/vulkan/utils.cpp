@@ -1,11 +1,13 @@
 #include "vulkan/utils.hpp"
 
+#include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <set>
 #include <vector>
 
-#include "vulkan/device.hpp"
+#include "vulkan/context.hpp"
 
 namespace vulkan::utils {
 
@@ -305,9 +307,8 @@ VkImageView createImageView(VkImage image, VkFormat format,
 
 void transitionImageLayout(VkImage image, VkFormat format,
                            VkImageLayout oldLayout, VkImageLayout newLayout,
-                           uint32_t mipLevels, Device& device,
-                           VkCommandPool commandPool) {
-    auto commandBuffer = device.beginSingleTimeCommands(commandPool);
+                           uint32_t mipLevels, Context& context) {
+    auto commandBuffer = context.beginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -363,12 +364,48 @@ void transitionImageLayout(VkImage image, VkFormat format,
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0,
                          nullptr, 0, nullptr, 1, &barrier);
 
-    device.endSingleTimeCommands(commandBuffer, commandPool);
+    context.endSingleTimeCommands(commandBuffer);
 }
 
 bool hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT
            || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+bool checkValidationLayerSupport() {
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    for (const auto& layerName : utils::validationLayers) {
+        auto b = std::cbegin(availableLayers);
+        auto e = std::cend(availableLayers);
+        auto it = std::find_if(b, e, [layerName](const auto& p) {
+            return std::strcmp(p.layerName, layerName) == 0;
+        });
+
+        if (it == e) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::vector<const char*> getRequiredExtensions() {
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions
+        = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+    std::vector<const char*> extensions(glfwExtensions,
+                                        glfwExtensions + glfwExtensionCount);
+
+    if (utils::enableValidationLayers) {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
+    return extensions;
 }
 
 } // namespace vulkan::utils

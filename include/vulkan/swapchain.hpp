@@ -8,9 +8,9 @@
 #include <tuple>
 #include <vector>
 
-#include "buffer_manager.hpp"
 #include "scene.hpp"
 #include "vk_mem_alloc.h"
+#include "vulkan/buffer_manager.hpp"
 #include "vulkan/depth_info.hpp"
 #include "vulkan/pipeline.hpp"
 #include "vulkan/sampler.hpp"
@@ -33,8 +33,8 @@ struct SwapchainBuffer {
 };
 
 struct Swapchain {
-    Swapchain(Device& device, VkCommandPool commandPool,
-              BufferManager& bufferManager, int width, int height);
+    Swapchain(Context& context, BufferManager& bufferManager, int width,
+              int height);
     ~Swapchain();
     void recreate(int width, int height, const scene::Scene& scene);
     void updateUniformBuffer(uint32_t currentImage,
@@ -83,13 +83,10 @@ struct Swapchain {
     std::vector<VkCommandBuffer>
     _createCommandBuffers(const scene::Scene& scene);
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
-    Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices,
-                               VkCommandPool commandPool);
-    Buffer _createIndexBuffer(const std::vector<uint32_t>& indices,
-                              VkCommandPool commandPool);
+    Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices);
+    Buffer _createIndexBuffer(const std::vector<uint32_t>& indices);
 
-    VkCommandPool _commandPool;
-    Device& _device;
+    Context& _context;
     BufferManager& _bufferManager;
 };
 

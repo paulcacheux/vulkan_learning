@@ -10,8 +10,8 @@ void Image::destroy(VmaAllocator allocator) {
     vmaDestroyImage(allocator, image, allocation);
 }
 
-BufferManager::BufferManager(Device* device, VmaAllocator allocator)
-    : allocator(allocator), _device(device) {
+BufferManager::BufferManager(Context& context, VmaAllocator allocator)
+    : allocator(allocator), _context(context) {
 }
 
 Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
@@ -75,8 +75,8 @@ Image BufferManager::createImage(uint32_t width, uint32_t height,
 }
 
 void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                               VkDeviceSize size, VkCommandPool commandPool) {
-    auto commandBuffer = _device->beginSingleTimeCommands(commandPool);
+                               VkDeviceSize size) {
+    auto commandBuffer = _context.beginSingleTimeCommands();
 
     VkBufferCopy copyRegion = {};
     copyRegion.srcOffset = 0;
@@ -84,13 +84,12 @@ void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    _device->endSingleTimeCommands(commandBuffer, commandPool);
+    _context.endSingleTimeCommands(commandBuffer);
 }
 
 void BufferManager::copyBufferToImage(VkBuffer buffer, VkImage image,
-                                      uint32_t width, uint32_t height,
-                                      VkCommandPool commandPool) {
-    auto commandBuffer = _device->beginSingleTimeCommands(commandPool);
+                                      uint32_t width, uint32_t height) {
+    auto commandBuffer = _context.beginSingleTimeCommands();
 
     VkBufferImageCopy region = {};
     region.bufferOffset = 0;
@@ -108,7 +107,7 @@ void BufferManager::copyBufferToImage(VkBuffer buffer, VkImage image,
     vkCmdCopyBufferToImage(commandBuffer, buffer, image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    _device->endSingleTimeCommands(commandBuffer, commandPool);
+    _context.endSingleTimeCommands(commandBuffer);
 }
 
 void BufferManager::destroyBuffer(Buffer buffer) {

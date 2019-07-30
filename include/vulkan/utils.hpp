@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace vulkan {
-class Device;
+class Context;
 }
 
 namespace vulkan::utils {
@@ -83,10 +83,13 @@ VkImageView createImageView(VkImage image, VkFormat format,
 
 void transitionImageLayout(VkImage image, VkFormat format,
                            VkImageLayout oldLayout, VkImageLayout newLayout,
-                           uint32_t mipLevels, Device& device,
-                           VkCommandPool commandPool);
+                           uint32_t mipLevels, Context& context);
 
 bool hasStencilComponent(VkFormat format);
+
+bool checkValidationLayerSupport();
+
+std::vector<const char*> getRequiredExtensions();
 
 } // namespace vulkan::utils
 

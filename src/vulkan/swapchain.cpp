@@ -1,6 +1,6 @@
 #include "vulkan/swapchain.hpp"
 #include "vulkan/buffer_manager.hpp"
-#include "vulkan/device.hpp"
+#include "vulkan/context.hpp"
 #include "vulkan/utils.hpp"
 #include "window.hpp"
 
@@ -8,18 +8,17 @@
 
 namespace vulkan {
 
-Swapchain::Swapchain(Device& device, VkCommandPool commandPool,
-                     BufferManager& bufferManager, int width, int height)
-    : _commandPool(commandPool), _device(device),
-      _bufferManager(bufferManager) {
+Swapchain::Swapchain(Context& context, BufferManager& bufferManager, int width,
+                     int height)
+    : _context(context), _bufferManager(bufferManager) {
 
     descriptorSetLayout = _createDescriptorSetLayout();
     scene::Scene emptyScene;
     texture = std::make_unique<Texture>("../obj/chalet.jpg", _bufferManager,
-                                        _device, _commandPool);
-    sampler = std::make_unique<Sampler>(_device, texture->mipLevels);
-    vertexBuffer = _createVertexBuffer(emptyScene.vertices, commandPool);
-    indexBuffer = _createIndexBuffer(emptyScene.indices, commandPool);
+                                        _context);
+    sampler = std::make_unique<Sampler>(_context, texture->mipLevels);
+    vertexBuffer = _createVertexBuffer(emptyScene.vertices);
+    indexBuffer = _createIndexBuffer(emptyScene.indices);
 
     _innerInit(width, height, emptyScene);
 }
@@ -31,7 +30,7 @@ Swapchain::~Swapchain() {
     _bufferManager.destroyBuffer(indexBuffer);
     texture.reset();
 
-    vkDestroyDescriptorSetLayout(device(), descriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(_context.device, descriptorSetLayout, nullptr);
     for (auto& uniformBuffer : uniformBuffers) {
         _bufferManager.destroyBuffer(uniformBuffer);
     }
@@ -59,24 +58,24 @@ void Swapchain::updateUniformBuffer(uint32_t currentImage,
 void Swapchain::updateSceneData(const scene::Scene& scene) {
     _bufferManager.destroyBuffer(vertexBuffer);
     _bufferManager.destroyBuffer(indexBuffer);
-    vertexBuffer = _createVertexBuffer(scene.vertices, _commandPool);
-    indexBuffer = _createIndexBuffer(scene.indices, _commandPool);
+    vertexBuffer = _createVertexBuffer(scene.vertices);
+    indexBuffer = _createIndexBuffer(scene.indices);
     commandBuffers = _createCommandBuffers(scene);
 }
 
 VkDevice Swapchain::device() {
-    return _device.device;
+    return _context.device;
 }
 
 void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
     std::tie(swapchain, format, extent, imageBuffers)
         = _createSwapChain(width, height);
-    depthResources = std::make_unique<DepthResources>(_device, _bufferManager,
-                                                      _commandPool, extent);
+    depthResources
+        = std::make_unique<DepthResources>(_context, _bufferManager, extent);
     renderPass = _createRenderPass();
     // depthResources = std::make_unique<DepthResources>();
-    pipeline = std::make_unique<Pipeline>(device(), descriptorSetLayout, extent,
-                                          renderPass);
+    pipeline = std::make_unique<Pipeline>(_context.device, descriptorSetLayout,
+                                          extent, renderPass);
     swapchainFramebuffers = _createFramebuffers();
     descriptorPool = _createDescriptorPool();
 
@@ -88,29 +87,29 @@ void Swapchain::_innerInit(int width, int height, const scene::Scene& scene) {
 
 void Swapchain::_cleanup() {
     for (auto fb : swapchainFramebuffers) {
-        vkDestroyFramebuffer(device(), fb, nullptr);
+        vkDestroyFramebuffer(_context.device, fb, nullptr);
     }
 
     for (const auto& imageBuffer : imageBuffers) {
-        vkDestroyImageView(device(), imageBuffer.imageView, nullptr);
+        vkDestroyImageView(_context.device, imageBuffer.imageView, nullptr);
     }
 
-    vkDestroyDescriptorPool(device(), descriptorPool, nullptr);
+    vkDestroyDescriptorPool(_context.device, descriptorPool, nullptr);
 
-    vkFreeCommandBuffers(device(), _commandPool,
+    vkFreeCommandBuffers(_context.device, _context.commandPool,
                          static_cast<uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 
-    vkDestroySwapchainKHR(device(), swapchain, nullptr);
+    vkDestroySwapchainKHR(_context.device, swapchain, nullptr);
     pipeline.reset();
-    vkDestroyRenderPass(device(), renderPass, nullptr);
+    vkDestroyRenderPass(_context.device, renderPass, nullptr);
     depthResources.reset();
 }
 
 std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D, std::vector<SwapchainBuffer>>
 Swapchain::_createSwapChain(int width, int height) {
-    auto swapChainSupport
-        = utils::querySwapChainSupport(_device.physicalDevice, _device.surface);
+    auto swapChainSupport = utils::querySwapChainSupport(
+        _context.physicalDevice, _context.surface);
     auto surfaceFormat
         = utils::chooseSwapSurfaceFormat(swapChainSupport.formats);
     auto presentMode
@@ -127,7 +126,7 @@ Swapchain::_createSwapChain(int width, int height) {
 
     VkSwapchainCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = _device.surface;
+    createInfo.surface = _context.surface;
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -136,7 +135,7 @@ Swapchain::_createSwapChain(int width, int height) {
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     auto indices
-        = utils::findQueueFamilies(_device.physicalDevice, _device.surface);
+        = utils::findQueueFamilies(_context.physicalDevice, _context.surface);
     uint32_t queueFamilyIndices[]
         = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
@@ -157,15 +156,16 @@ Swapchain::_createSwapChain(int width, int height) {
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     VkSwapchainKHR swapchain;
-    if (vkCreateSwapchainKHR(device(), &createInfo, nullptr, &swapchain)
+    if (vkCreateSwapchainKHR(_context.device, &createInfo, nullptr, &swapchain)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create swapchain");
     }
 
     std::vector<VkImage> images;
-    vkGetSwapchainImagesKHR(device(), swapchain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(_context.device, swapchain, &imageCount, nullptr);
     images.resize(imageCount);
-    vkGetSwapchainImagesKHR(device(), swapchain, &imageCount, images.data());
+    vkGetSwapchainImagesKHR(_context.device, swapchain, &imageCount,
+                            images.data());
 
     auto format = surfaceFormat.format;
     auto buffers = _createImageViews(std::move(images), format);
@@ -180,7 +180,7 @@ Swapchain::_createImageViews(std::vector<VkImage> images, VkFormat format) {
 
     for (std::size_t i = 0; i < count; ++i) {
         imageViews[i] = utils::createImageView(
-            images[i], format, VK_IMAGE_ASPECT_COLOR_BIT, 1, device());
+            images[i], format, VK_IMAGE_ASPECT_COLOR_BIT, 1, _context.device);
     }
 
     std::vector<SwapchainBuffer> buffers;
@@ -251,7 +251,8 @@ VkRenderPass Swapchain::_createRenderPass() {
     renderPassInfo.pDependencies = &dependency;
 
     VkRenderPass renderPass;
-    if (vkCreateRenderPass(device(), &renderPassInfo, nullptr, &renderPass)
+    if (vkCreateRenderPass(_context.device, &renderPassInfo, nullptr,
+                           &renderPass)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass");
     }
@@ -275,7 +276,8 @@ std::vector<VkFramebuffer> Swapchain::_createFramebuffers() {
         fbInfo.height = extent.height;
         fbInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device(), &fbInfo, nullptr, &framebuffers[i])
+        if (vkCreateFramebuffer(_context.device, &fbInfo, nullptr,
+                                &framebuffers[i])
             != VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer");
         }
@@ -306,7 +308,7 @@ VkDescriptorPool Swapchain::_createDescriptorPool() {
     poolInfo.maxSets = static_cast<uint32_t>(imageBuffers.size());
 
     VkDescriptorPool pool;
-    if (vkCreateDescriptorPool(device(), &poolInfo, nullptr, &pool)
+    if (vkCreateDescriptorPool(_context.device, &poolInfo, nullptr, &pool)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool");
     }
@@ -337,7 +339,7 @@ VkDescriptorSetLayout Swapchain::_createDescriptorSetLayout() {
     layoutInfo.pBindings = bindings.data();
 
     VkDescriptorSetLayout descriptorSetLayout;
-    if (vkCreateDescriptorSetLayout(device(), &layoutInfo, nullptr,
+    if (vkCreateDescriptorSetLayout(_context.device, &layoutInfo, nullptr,
                                     &descriptorSetLayout)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout");
@@ -357,7 +359,8 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
     allocInfo.pSetLayouts = layouts.data();
 
     std::vector<VkDescriptorSet> descriptorSets(size);
-    if (vkAllocateDescriptorSets(device(), &allocInfo, descriptorSets.data())
+    if (vkAllocateDescriptorSets(_context.device, &allocInfo,
+                                 descriptorSets.data())
         != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets");
     }
@@ -398,8 +401,9 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
         std::array<VkWriteDescriptorSet, 2> dws
             = {descriptorWriteUniform, descriptorWriteSampler};
 
-        vkUpdateDescriptorSets(device(), static_cast<uint32_t>(dws.size()),
-                               dws.data(), 0, nullptr);
+        vkUpdateDescriptorSets(_context.device,
+                               static_cast<uint32_t>(dws.size()), dws.data(), 0,
+                               nullptr);
     }
 
     return descriptorSets;
@@ -411,11 +415,11 @@ Swapchain::_createCommandBuffers(const scene::Scene& scene) {
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = _commandPool;
+    allocInfo.commandPool = _context.commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
 
-    if (vkAllocateCommandBuffers(device(), &allocInfo, buffers.data())
+    if (vkAllocateCommandBuffers(_context.device, &allocInfo, buffers.data())
         != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers");
     }
@@ -490,16 +494,14 @@ std::vector<Buffer> Swapchain::_createUniformBuffers(std::size_t imageSize) {
 }
 
 Buffer
-Swapchain::_createVertexBuffer(const std::vector<scene::Vertex>& vertices,
-                               VkCommandPool commandPool) {
+Swapchain::_createVertexBuffer(const std::vector<scene::Vertex>& vertices) {
     return _bufferManager.createTwoLevelBuffer(
-        vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, commandPool);
+        vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 }
 
-Buffer Swapchain::_createIndexBuffer(const std::vector<uint32_t>& indices,
-                                     VkCommandPool commandPool) {
+Buffer Swapchain::_createIndexBuffer(const std::vector<uint32_t>& indices) {
     return _bufferManager.createTwoLevelBuffer(
-        indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, commandPool);
+        indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 } // namespace vulkan

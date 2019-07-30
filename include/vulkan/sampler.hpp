@@ -5,18 +5,19 @@
 
 namespace vulkan {
 
-class Device;
+class Context;
 
 class Sampler {
   public:
-    Sampler(Device& device, uint32_t mipLevels);
+    Sampler(Context& context, uint32_t mipLevels);
     ~Sampler();
 
     VkSampler sampler;
 
   private:
-    Device& _device;
+    Context& _context;
 };
+
 } // namespace vulkan
 
 #endif

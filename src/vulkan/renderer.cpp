@@ -14,95 +14,27 @@
 
 namespace vulkan {
 
-Renderer::Renderer(const app::Window& appWindow) : _appWindow(appWindow) {
-    if (utils::enableValidationLayers && !checkValidationLayerSupport()) {
-        throw std::runtime_error(
-            "validation layer requested, but not available");
-    }
+Renderer::Renderer(const app::Window& appWindow, Context& context)
+    : context(context), _appWindow(appWindow) {
 
-    auto appInfo = utils::makeAppInfo();
-
-    VkInstanceCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-
-    // glfw extensions
-    auto extensions = _getRequiredExtensions();
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    createInfo.ppEnabledExtensionNames = extensions.data();
-
-    // validation layers
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
-    if (utils::enableValidationLayers) {
-        createInfo.enabledLayerCount
-            = static_cast<uint32_t>(utils::validationLayers.size());
-        createInfo.ppEnabledLayerNames = utils::validationLayers.data();
-
-        debugCreateInfo = utils::makeDebugMessengerCreateInfo();
-        createInfo.pNext = &debugCreateInfo;
-    } else {
-        createInfo.enabledLayerCount = 0;
-        createInfo.pNext = nullptr;
-    }
-
-    if (vkCreateInstance(&createInfo, nullptr, &_instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance");
-    }
-
-    _debugMessenger = _setupDebugMessenger();
-    _device.init(appWindow.inner(), _instance);
-    _allocator = _createAllocator();
-
-    _commandPool = _createCommandPool();
-    _bufferManager = std::make_unique<BufferManager>(&_device, _allocator);
+    bufferManager = std::make_unique<BufferManager>(context, context.allocator);
 
     auto [width, height] = appWindow.getFrameBufferSize();
-    _swapchain = std::make_unique<Swapchain>(_device, _commandPool,
-                                             *_bufferManager, width, height);
+    _swapchain
+        = std::make_unique<Swapchain>(context, *bufferManager, width, height);
 
     _syncObjects = _createSyncObjects();
 }
 
 Renderer::~Renderer() {
     _swapchain.reset();
-    vkDestroyCommandPool(device(), _commandPool, nullptr);
-    _bufferManager.reset();
-
-    vmaDestroyAllocator(_allocator);
+    bufferManager.reset();
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(device(), pair.imageAvailable, nullptr);
         vkDestroySemaphore(device(), pair.renderFinished, nullptr);
         vkDestroyFence(device(), pair.inFlight, nullptr);
     }
-
-    if (utils::enableValidationLayers) {
-        utils::DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger,
-                                             nullptr);
-    }
-    _device.destroy();
-    vkDestroyInstance(_instance, nullptr);
-}
-
-bool Renderer::checkValidationLayerSupport() {
-    uint32_t layerCount;
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-    std::vector<VkLayerProperties> availableLayers(layerCount);
-    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-    for (const auto& layerName : utils::validationLayers) {
-        auto b = std::cbegin(availableLayers);
-        auto e = std::cend(availableLayers);
-        auto it = std::find_if(b, e, [layerName](const auto& p) {
-            return std::strcmp(p.layerName, layerName) == 0;
-        });
-
-        if (it == e) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 void Renderer::drawFrame() {
@@ -144,7 +76,7 @@ void Renderer::drawFrame() {
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     vkResetFences(device(), 1, &currentSync.inFlight);
-    if (vkQueueSubmit(_device.graphicsQueue, 1, &submitInfo,
+    if (vkQueueSubmit(context.graphicsQueue, 1, &submitInfo,
                       currentSync.inFlight)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer");
@@ -162,7 +94,7 @@ void Renderer::drawFrame() {
 
     presentInfo.pResults = nullptr;
 
-    auto presRes = vkQueuePresentKHR(_device.presentQueue, &presentInfo);
+    auto presRes = vkQueuePresentKHR(context.presentQueue, &presentInfo);
     if (presRes == VK_ERROR_OUT_OF_DATE_KHR || _mustRecreateSwapchain) {
         _mustRecreateSwapchain = false;
         recreateSwapchain();
@@ -218,70 +150,11 @@ void Renderer::setViewMatrix(glm::mat4 viewMatrix) {
 }
 
 VkDevice Renderer::device() {
-    return _device.device;
+    return context.device;
 }
 
 VmaAllocator Renderer::allocator() {
-    return _allocator;
-}
-
-VmaAllocator Renderer::_createAllocator() {
-    VmaAllocatorCreateInfo allocInfo = {};
-    allocInfo.physicalDevice = _device.physicalDevice;
-    allocInfo.device = device();
-
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocInfo, &allocator);
-    return allocator;
-}
-
-VkCommandPool Renderer::_createCommandPool() {
-    auto queueFamilyIndices
-        = utils::findQueueFamilies(_device.physicalDevice, _device.surface);
-
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-    poolInfo.flags = 0;
-
-    VkCommandPool commandPool;
-    if (vkCreateCommandPool(device(), &poolInfo, nullptr, &commandPool)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create command pool");
-    }
-
-    return commandPool;
-}
-
-std::vector<const char*> Renderer::_getRequiredExtensions() {
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions
-        = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-    std::vector<const char*> extensions(glfwExtensions,
-                                        glfwExtensions + glfwExtensionCount);
-
-    if (utils::enableValidationLayers) {
-        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    }
-
-    return extensions;
-}
-
-VkDebugUtilsMessengerEXT Renderer::_setupDebugMessenger() {
-    if (utils::enableValidationLayers) {
-        auto createInfo = utils::makeDebugMessengerCreateInfo();
-        VkDebugUtilsMessengerEXT debugMessenger;
-
-        if (utils::CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr,
-                                                &debugMessenger)
-            != VK_SUCCESS) {
-            throw std::runtime_error("failed to set up debug messenger");
-        }
-        return debugMessenger;
-    } else {
-        return nullptr;
-    }
+    return context.allocator;
 }
 
 std::vector<Renderer::SyncObject> Renderer::_createSyncObjects() {

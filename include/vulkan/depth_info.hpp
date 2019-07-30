@@ -10,7 +10,7 @@
 namespace vulkan {
 
 struct DepthResources {
-    DepthResources(Device& device, BufferManager& bufferManager, VkCommandPool,
+    DepthResources(Context& context, BufferManager& bufferManager,
                    VkExtent2D scExtent);
     ~DepthResources();
 
@@ -25,7 +25,7 @@ struct DepthResources {
                          VkImageTiling tiling, VkFormatFeatureFlags features,
                          VkPhysicalDevice physicalDevice);
 
-    Device& _device;
+    Context& _context;
     BufferManager& _bufferManager;
 };
 
