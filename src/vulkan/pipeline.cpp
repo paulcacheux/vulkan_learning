@@ -3,6 +3,8 @@
 #include "scene.hpp"
 #include "vulkan/utils.hpp"
 
+namespace vulkan {
+
 Pipeline::Pipeline(VkDevice device, VkDescriptorSetLayout dsl,
                    VkExtent2D extent, VkRenderPass renderPass)
     : device(device) {
@@ -189,3 +191,5 @@ VkShaderModule Pipeline::_createShaderModule(const std::string& path) {
 
     return module;
 }
+
+} // namespace vulkan

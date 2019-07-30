@@ -4,12 +4,26 @@
 #include <stdexcept>
 
 #include "vk_mem_alloc.h"
+#include "vulkan/utils.hpp"
 
 namespace vulkan {
 
 Texture::Texture(const std::string& path, BufferManager& bufferManager,
                  Device& device, VkCommandPool commandPool)
-    : _bufferManager(bufferManager) {
+    : _bufferManager(bufferManager), _device(device) {
+
+    textureImage = _createTextureImage(path, commandPool);
+    textureImageView = utils::createImageView(
+        textureImage.image, VK_FORMAT_R8G8B8A8_UNORM, device.device);
+}
+
+Texture::~Texture() {
+    vkDestroyImageView(_device.device, textureImageView, nullptr);
+    _bufferManager.destroyImage(textureImage);
+}
+
+Image Texture::_createTextureImage(const std::string& path,
+                                   VkCommandPool commandPool) {
     int width, height, channels;
     stbi_uc* pixels
         = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
@@ -20,39 +34,35 @@ Texture::Texture(const std::string& path, BufferManager& bufferManager,
         throw std::runtime_error("failed to load texture image");
     }
 
-    auto stagingBuffer = bufferManager.createBuffer(
+    auto stagingBuffer = _bufferManager.createBuffer(
         size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
     void* data;
-    vmaMapMemory(bufferManager.allocator, stagingBuffer.allocation, &data);
+    vmaMapMemory(_bufferManager.allocator, stagingBuffer.allocation, &data);
     std::memcpy(data, pixels, static_cast<std::size_t>(size));
-    vmaUnmapMemory(bufferManager.allocator, stagingBuffer.allocation);
+    vmaUnmapMemory(_bufferManager.allocator, stagingBuffer.allocation);
     stbi_image_free(pixels);
 
     auto format = VK_FORMAT_R8G8B8A8_UNORM;
-    auto image = bufferManager.createImage(
+    auto image = _bufferManager.createImage(
         width, height, format, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
 
     _transitionImageLayout(image.image, format, VK_IMAGE_LAYOUT_UNDEFINED,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, device,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, _device,
                            commandPool);
 
-    bufferManager.copyBufferToImage(stagingBuffer.buffer, image.image, width,
-                                    height, commandPool);
+    _bufferManager.copyBufferToImage(stagingBuffer.buffer, image.image, width,
+                                     height, commandPool);
 
     _transitionImageLayout(
         image.image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, device, commandPool);
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, _device, commandPool);
 
-    bufferManager.destroyBuffer(stagingBuffer);
+    _bufferManager.destroyBuffer(stagingBuffer);
 
-    textureImage = image;
-}
-
-Texture::~Texture() {
-    _bufferManager.destroyImage(textureImage);
+    return image;
 }
 
 void Texture::_transitionImageLayout(VkImage image, VkFormat format,

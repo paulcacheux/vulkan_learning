@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-namespace utils {
+namespace vulkan::utils {
 
 const std::vector<const char*> validationLayers
     = {"VK_LAYER_KHRONOS_validation"};
@@ -73,6 +73,8 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
                         VkPhysicalDevice device);
 
-} // namespace utils
+VkImageView createImageView(VkImage image, VkFormat format, VkDevice device);
+
+} // namespace vulkan::utils
 
 #endif

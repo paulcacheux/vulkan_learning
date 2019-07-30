@@ -4,6 +4,8 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
+namespace vulkan {
+
 struct Pipeline {
     Pipeline(VkDevice device, VkDescriptorSetLayout dsl, VkExtent2D extent,
              VkRenderPass renderPass);
@@ -16,6 +18,8 @@ struct Pipeline {
   private:
     VkShaderModule _createShaderModule(const std::string& path);
 };
+
+} // namespace vulkan
 
 #endif
 

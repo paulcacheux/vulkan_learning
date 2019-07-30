@@ -13,6 +13,7 @@
 #include "vk_mem_alloc.h"
 #include "vulkan/depth_info.hpp"
 #include "vulkan/pipeline.hpp"
+#include "vulkan/sampler.hpp"
 #include "vulkan/texture.hpp"
 
 namespace app {
@@ -62,6 +63,7 @@ struct Swapchain {
 
     // textures
     std::unique_ptr<Texture> texture;
+    std::unique_ptr<Sampler> sampler;
 
     std::unique_ptr<DepthResources> depthResources;
 
