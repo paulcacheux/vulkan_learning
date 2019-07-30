@@ -22,6 +22,9 @@ class Texture {
   private:
     std::pair<Image, uint32_t> _createTextureImage(const std::string& path,
                                                    VkCommandPool commandPool);
+    void _generateMipLevels(VkImage image, VkFormat format, uint32_t width,
+                            uint32_t height, uint32_t mipLevels,
+                            VkCommandPool commandPool);
 
     BufferManager& _bufferManager;
     Device& _device;

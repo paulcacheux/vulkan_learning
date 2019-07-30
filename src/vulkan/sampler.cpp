@@ -3,7 +3,7 @@
 
 namespace vulkan {
 
-Sampler::Sampler(Device& device) : _device(device) {
+Sampler::Sampler(Device& device, uint32_t mipLevels) : _device(device) {
     VkSamplerCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     createInfo.magFilter = VK_FILTER_LINEAR;
@@ -21,7 +21,8 @@ Sampler::Sampler(Device& device) : _device(device) {
 
     createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     createInfo.mipLodBias = 0.0f;
-    createInfo.minLod = createInfo.maxLod = 0.0f;
+    createInfo.minLod = 0.0f;
+    createInfo.maxLod = static_cast<float>(mipLevels);
 
     if (vkCreateSampler(_device.device, &createInfo, nullptr, &sampler)
         != VK_SUCCESS) {

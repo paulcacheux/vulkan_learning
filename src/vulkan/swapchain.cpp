@@ -17,7 +17,7 @@ Swapchain::Swapchain(Device& device, VkCommandPool commandPool,
     scene::Scene emptyScene;
     texture = std::make_unique<Texture>("../obj/chalet.jpg", _bufferManager,
                                         _device, _commandPool);
-    sampler = std::make_unique<Sampler>(_device);
+    sampler = std::make_unique<Sampler>(_device, texture->mipLevels);
     vertexBuffer = _createVertexBuffer(emptyScene.vertices, commandPool);
     indexBuffer = _createIndexBuffer(emptyScene.indices, commandPool);
 

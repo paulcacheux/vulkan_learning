@@ -9,7 +9,7 @@ class Device;
 
 class Sampler {
   public:
-    Sampler(Device& device);
+    Sampler(Device& device, uint32_t mipLevels);
     ~Sampler();
 
     VkSampler sampler;
