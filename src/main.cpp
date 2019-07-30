@@ -69,7 +69,7 @@ int main() {
         window.linkToCoupler(&coupler);
         window.switchToRawMouseMode();
 
-        FpsWatcher fps(200);
+        FpsWatcher fps(300);
 
         while (!window.shouldClose()) {
             auto dt = fps.checkFps();

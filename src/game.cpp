@@ -3,6 +3,7 @@
 #include <iostream>
 
 Game::Game() : _rd(), _gen(_rd()), _distribution() {
+    /* cube gen
     _scene.vertices.clear();
     _scene.indices.clear();
 
@@ -14,7 +15,9 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
                 addCube(_scene, {-0.3 + a, -0.3 + b, -0.3 + c}, 0.1, gen);
             }
         }
-    }
+    }*/
+
+    _scene = scene::Scene("../obj/chalet.obj");
 }
 
 void Game::update(float dt) {

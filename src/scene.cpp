@@ -1,4 +1,7 @@
 #include "scene.hpp"
+#include "tiny_obj_loader.h"
+
+#include <unordered_map>
 
 namespace scene {
 
@@ -34,7 +37,53 @@ Vertex::getAttributeDescriptions() {
     return attributeDescriptions;
 }
 
+bool operator==(const Vertex& a, const Vertex& b) {
+    return a.pos == b.pos && a.color == b.color && a.texCoord == b.texCoord;
+}
+
 Scene::Scene() : vertices({{{0, 0, 0}, {0, 0, 0}, {0, 0}}}), indices({0}) {
+}
+
+Scene::Scene(const std::string& objPath) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
+                          objPath.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices;
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            // fix for coordinates
+            glm::vec3 pos{
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2],
+                attrib.vertices[3 * index.vertex_index + 0],
+            };
+
+            // fix for uv coord
+            glm::vec2 texCoord{
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+            };
+
+            glm::vec3 color{1.0, 1.0, 1.0};
+
+            Vertex vertex{pos, color, texCoord};
+            auto [it, newVertex]
+                = uniqueVertices.try_emplace(vertex, vertices.size());
+
+            if (newVertex) {
+                vertices.push_back(vertex);
+            }
+
+            indices.push_back(it->second);
+        }
+    }
 }
 
 void Scene::addTriangle(std::array<uint32_t, 3> id, uint32_t offset) {

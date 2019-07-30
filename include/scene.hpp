@@ -6,6 +6,7 @@
 #include <array>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_MESSAGES
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
@@ -32,10 +33,15 @@ struct Vertex {
     getAttributeDescriptions();
 };
 
+bool operator==(const Vertex& a, const Vertex& b);
+
 struct Scene {
     Scene();
+    Scene(const std::string& objPath);
+
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
+
     void addTriangle(std::array<uint32_t, 3> id, uint32_t offset = 0);
 
     glm::mat4 getModelMatrix() const;
@@ -68,5 +74,23 @@ struct Camera {
 glm::vec3 applyTransPoint(glm::vec3 point, glm::mat4 trans);
 
 } // namespace scene
+
+namespace std {
+template <> struct hash<scene::Vertex> {
+    std::size_t operator()(const scene::Vertex& vertex) const {
+        auto hasher = std::hash<float>();
+        auto x = hasher(vertex.pos.x);
+        auto y = hasher(vertex.pos.y);
+        auto z = hasher(vertex.pos.z);
+        auto r = hasher(vertex.color.r);
+        auto g = hasher(vertex.color.g);
+        auto b = hasher(vertex.color.b);
+        auto u = hasher(vertex.texCoord.x);
+        auto v = hasher(vertex.texCoord.y);
+
+        return x ^ y ^ z ^ r ^ g ^ b ^ u ^ v;
+    }
+};
+} // namespace std
 
 #endif
