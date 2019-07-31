@@ -14,21 +14,19 @@
 
 namespace vulkan {
 
-Renderer::Renderer(const app::Window& appWindow, Context& context)
-    : context(context), _appWindow(appWindow) {
-
-    bufferManager = std::make_unique<BufferManager>(context, context.allocator);
+Renderer::Renderer(const app::Window& appWindow, Context& context,
+                   BufferManager& bufferManager)
+    : bufferManager(bufferManager), context(context), _appWindow(appWindow) {
 
     auto [width, height] = appWindow.getFrameBufferSize();
     _swapchain
-        = std::make_unique<Swapchain>(context, *bufferManager, width, height);
+        = std::make_unique<Swapchain>(context, bufferManager, width, height);
 
     _syncObjects = _createSyncObjects();
 }
 
 Renderer::~Renderer() {
     _swapchain.reset();
-    bufferManager.reset();
 
     for (const auto& pair : _syncObjects) {
         vkDestroySemaphore(context.device, pair.imageAvailable, nullptr);
@@ -112,7 +110,7 @@ void Renderer::recreateSwapchain() {
     context.deviceWaitIdle();
 
     auto [width, height] = _appWindow.getFrameBufferSize();
-    _swapchain->recreate(width, height, *_scene);
+    _swapchain->recreate(width, height);
 }
 
 void Renderer::updateUniformBuffer(uint32_t currentImage) {
@@ -124,7 +122,7 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
                      .count(); */
 
     scene::UniformBufferObject ubo;
-    ubo.model = _scene->getModelMatrix();
+    ubo.model = glm::mat4(1.0f);
     ubo.view = _viewMatrix;
 
     ubo.proj = glm::perspective(glm::radians(45.0f),
@@ -136,10 +134,13 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
     _swapchain->updateUniformBuffer(currentImage, ubo);
 }
 
-void Renderer::setScene(const scene::Scene* scene) {
-    _scene = scene;
+void Renderer::setScene(const scene::Scene& scene) {
     context.deviceWaitIdle();
-    _swapchain->updateSceneData(*scene);
+    _swapchain->beginMeshUpdates();
+    for (const auto& mesh : scene.meshes) {
+        _swapchain->addMesh(&mesh);
+    }
+    _swapchain->endMeshUpdates();
 }
 
 void Renderer::setViewMatrix(glm::mat4 viewMatrix) {

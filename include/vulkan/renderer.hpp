@@ -31,7 +31,8 @@ class Renderer {
     };
 
   public:
-    Renderer(const app::Window& appWindow, Context& context);
+    Renderer(const app::Window& appWindow, Context& context,
+             BufferManager& bufferManager);
     ~Renderer();
 
     bool checkValidationLayerSupport();
@@ -42,16 +43,15 @@ class Renderer {
     }
     void updateUniformBuffer(uint32_t currentImage);
 
-    void setScene(const scene::Scene* scene);
+    void setScene(const scene::Scene& scene);
     void setViewMatrix(glm::mat4 viewMatrix);
 
-    std::unique_ptr<BufferManager> bufferManager;
+    BufferManager& bufferManager;
     Context& context;
 
   private:
     std::vector<SyncObject> _createSyncObjects();
 
-    const scene::Scene* _scene;
     glm::mat4 _viewMatrix;
     const app::Window& _appWindow;
     std::unique_ptr<Swapchain> _swapchain;

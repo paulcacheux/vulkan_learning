@@ -8,7 +8,6 @@
 #include <iostream>
 #include <vector>
 
-#include "scene.hpp"
 #include "vk_mem_alloc.h"
 #include "vulkan/context.hpp"
 
@@ -30,7 +29,7 @@ struct Image {
 
 class BufferManager {
   public:
-    BufferManager(Context& context, VmaAllocator allocator);
+    BufferManager(Context& context);
 
     Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);

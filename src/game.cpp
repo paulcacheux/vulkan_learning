@@ -17,7 +17,6 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
         }
     }*/
 
-    _scene = scene::Scene("../obj/chalet/chalet.obj");
     // _scene = scene::Scene("../obj/cathedral/combined02.obj");
 }
 
@@ -53,33 +52,10 @@ void Game::setNewMouseInput(double xpos, double ypos) {
     _ypos = ypos;
 }
 
-void Game::randomChangeScene() {
-    for (auto& vertex : _scene.vertices) {
-        // change color
-        for (std::size_t i = 0; i < 3; ++i) {
-            vertex.color
-                = randomColor([this]() { return _distribution(_gen); });
-        }
-        // change cube
-        /*for (std::size_t i = 0; i < 3; ++i) {
-            vertex.pos[i] += (_distribution(_gen) - 0.5) / 10;
-        }*/
-    }
-    sceneHasChanged = true;
-}
-
-scene::Scene Game::getScene() const {
-    return _scene;
-}
-
 const scene::Camera& Game::getCamera() const {
     return _camera;
 }
 
 scene::Camera& Game::getCamera() {
     return _camera;
-}
-
-glm::mat4 Game::getModelMatrix() const {
-    return glm::mat4();
 }

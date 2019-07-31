@@ -12,6 +12,7 @@
 #include "vk_mem_alloc.h"
 #include "vulkan/buffer_manager.hpp"
 #include "vulkan/depth_info.hpp"
+#include "vulkan/mesh.hpp"
 #include "vulkan/pipeline.hpp"
 #include "vulkan/sampler.hpp"
 #include "vulkan/texture.hpp"
@@ -36,11 +37,12 @@ struct Swapchain {
     Swapchain(Context& context, BufferManager& bufferManager, int width,
               int height);
     ~Swapchain();
-    void recreate(int width, int height, const scene::Scene& scene);
+    void recreate(int width, int height);
     void updateUniformBuffer(uint32_t currentImage,
                              scene::UniformBufferObject ubo);
-    void updateSceneData(const scene::Scene& scene);
-    VkDevice device();
+    void beginMeshUpdates();
+    void addMesh(const Mesh* mesh);
+    void endMeshUpdates();
 
     VkSwapchainKHR swapchain;
     VkFormat format;
@@ -58,8 +60,6 @@ struct Swapchain {
 
     // uniform buffers
     std::vector<Buffer> uniformBuffers;
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
 
     // textures
     std::unique_ptr<Texture> texture;
@@ -68,7 +68,7 @@ struct Swapchain {
     std::unique_ptr<DepthResources> depthResources;
 
   private:
-    void _innerInit(int width, int height, const scene::Scene& scene);
+    void _innerInit(int width, int height);
     void _cleanup();
     std::tuple<VkSwapchainKHR, VkFormat, VkExtent2D,
                std::vector<SwapchainBuffer>>
@@ -81,11 +81,11 @@ struct Swapchain {
     VkDescriptorSetLayout _createDescriptorSetLayout();
     std::vector<VkDescriptorSet> _createDescriptorSets();
     void _updateDescriptorSets();
-    std::vector<VkCommandBuffer>
-    _createCommandBuffers(const scene::Scene& scene);
+    std::vector<VkCommandBuffer> _createCommandBuffers();
+    void _updateCommandBuffers();
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);
-    Buffer _createVertexBuffer(const std::vector<scene::Vertex>& vertices);
-    Buffer _createIndexBuffer(const std::vector<uint32_t>& indices);
+
+    std::vector<const Mesh*> _meshes;
 
     Context& _context;
     BufferManager& _bufferManager;

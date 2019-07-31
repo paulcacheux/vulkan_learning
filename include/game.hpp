@@ -28,15 +28,10 @@ class Game {
     void setNewMouseInput(double xpos, double ypos);
     void randomChangeScene();
 
-    scene::Scene getScene() const;
     const scene::Camera& getCamera() const;
     scene::Camera& getCamera();
-    glm::mat4 getModelMatrix() const;
-
-    bool sceneHasChanged = true;
 
   private:
-    scene::Scene _scene;
     scene::Camera _camera;
     std::array<bool, inputStateSize> _states = {false};
     double _xpos = 0, _ypos = 0;
@@ -55,6 +50,7 @@ template <class R> glm::vec3 randomColor(R rand) {
     return color;
 }
 
+/*
 template <class R>
 void addCube(scene::Scene& scene, glm::vec3 origin, float width, R rand) {
     auto indexOffset = scene.vertices.size();
@@ -87,6 +83,6 @@ void addCube(scene::Scene& scene, glm::vec3 origin, float width, R rand) {
     scene.addTriangle({5, 4, 1}, indexOffset);
     scene.addTriangle({7, 2, 3}, indexOffset);
     scene.addTriangle({2, 7, 6}, indexOffset);
-}
+}*/
 
 #endif

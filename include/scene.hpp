@@ -11,7 +11,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 
+#include "vulkan/buffer_manager.hpp"
+#include "vulkan/mesh.hpp"
+
 namespace scene {
+
+using vulkan::Vertex;
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -19,30 +24,10 @@ struct UniformBufferObject {
     glm::mat4 proj;
 };
 
-struct Vertex {
-    Vertex(glm::vec3 pos, glm::vec3 color, glm::vec2 texCoord)
-        : pos(pos), color(color), texCoord(texCoord) {
-    }
-
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 3>
-    getAttributeDescriptions();
-};
-
-bool operator==(const Vertex& a, const Vertex& b);
-
 struct Scene {
-    Scene();
-    Scene(const std::string& objPath);
+    Scene(vulkan::BufferManager& bufferManager, const std::string& objPath);
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-
-    void addTriangle(std::array<uint32_t, 3> id, uint32_t offset = 0);
+    std::vector<vulkan::Mesh> meshes;
 
     glm::mat4 getModelMatrix() const;
 };

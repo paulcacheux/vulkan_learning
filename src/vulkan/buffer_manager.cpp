@@ -10,8 +10,8 @@ void Image::destroy(VmaAllocator allocator) {
     vmaDestroyImage(allocator, image, allocation);
 }
 
-BufferManager::BufferManager(Context& context, VmaAllocator allocator)
-    : allocator(allocator), _context(context) {
+BufferManager::BufferManager(Context& context)
+    : allocator(context.allocator), _context(context) {
 }
 
 Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,

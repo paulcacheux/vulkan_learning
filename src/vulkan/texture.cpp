@@ -1,5 +1,6 @@
 #include "vulkan/texture.hpp"
 
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 

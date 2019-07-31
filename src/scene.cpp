@@ -6,46 +6,7 @@
 
 namespace scene {
 
-VkVertexInputBindingDescription Vertex::getBindingDescription() {
-    VkVertexInputBindingDescription bindingDescription = {};
-
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    return bindingDescription;
-}
-
-std::array<VkVertexInputAttributeDescription, 3>
-Vertex::getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
-
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-    attributeDescriptions[2].binding = 0;
-    attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-    return attributeDescriptions;
-}
-
-bool operator==(const Vertex& a, const Vertex& b) {
-    return a.pos == b.pos && a.color == b.color && a.texCoord == b.texCoord;
-}
-
-Scene::Scene() : vertices({{{0, 0, 0}, {0, 0, 0}, {0, 0}}}), indices({0}) {
-}
-
-Scene::Scene(const std::string& objPath) {
+Scene::Scene(vulkan::BufferManager& bufferManager, const std::string& objPath) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -55,9 +16,11 @@ Scene::Scene(const std::string& objPath) {
         throw std::runtime_error(warn + err);
     }
 
-    std::unordered_map<Vertex, uint32_t> uniqueVertices;
-
     for (const auto& shape : shapes) {
+        std::unordered_map<Vertex, uint32_t> uniqueVertices;
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+
         for (const auto& index : shape.mesh.indices) {
             // fix for coordinates
             glm::vec3 pos{
@@ -84,13 +47,8 @@ Scene::Scene(const std::string& objPath) {
 
             indices.push_back(it->second);
         }
-    }
-}
 
-void Scene::addTriangle(std::array<uint32_t, 3> id, uint32_t offset) {
-    indices.reserve(indices.size() + id.size());
-    for (auto i : id) {
-        indices.push_back(i + offset);
+        meshes.emplace_back(bufferManager, vertices, indices);
     }
 }
 

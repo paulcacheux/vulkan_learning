@@ -61,12 +61,13 @@ int main() {
         app::WindowContext windowContext;
         app::Window window(WIDTH, HEIGHT, "Vulkan window");
 
-        Game game;
-        auto scene = game.getScene();
-
         vulkan::Context context(window.inner());
-        vulkan::Renderer renderer(window, context);
-        renderer.setScene(&scene);
+        vulkan::BufferManager bufferManager(context);
+        vulkan::Renderer renderer(window, context, bufferManager);
+
+        Game game;
+        scene::Scene scene{bufferManager, "../obj/chalet/chalet.obj"};
+        renderer.setScene(scene);
 
         app::GameRendererCoupler coupler{game, renderer};
         window.linkToCoupler(&coupler);
@@ -83,12 +84,7 @@ int main() {
             windowContext.pollEvents();
             renderer.setViewMatrix(game.getCamera().getViewMatrix());
             game.update(dt->count());
-            if (game.sceneHasChanged) {
-                scene = game.getScene();
-                renderer.setScene(&scene);
-                game.sceneHasChanged = false;
-                std::cout << "update\n";
-            }
+
             renderer.drawFrame();
         }
         context.deviceWaitIdle();
