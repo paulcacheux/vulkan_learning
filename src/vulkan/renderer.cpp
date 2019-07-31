@@ -138,7 +138,7 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
 
 void Renderer::setScene(const scene::Scene* scene) {
     _scene = scene;
-    deviceWaitIdle();
+    context.deviceWaitIdle();
     _swapchain->updateSceneData(*scene);
 }
 

@@ -80,6 +80,7 @@ struct Swapchain {
     VkDescriptorPool _createDescriptorPool();
     VkDescriptorSetLayout _createDescriptorSetLayout();
     std::vector<VkDescriptorSet> _createDescriptorSets();
+    void _updateDescriptorSets();
     std::vector<VkCommandBuffer>
     _createCommandBuffers(const scene::Scene& scene);
     std::vector<Buffer> _createUniformBuffers(std::size_t imageSize);

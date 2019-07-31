@@ -367,6 +367,12 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
         throw std::runtime_error("failed to allocate descriptor sets");
     }
 
+    return descriptorSets;
+}
+
+void Swapchain::_updateDescriptorSets() {
+    auto size = imageBuffers.size();
+
     for (std::size_t i = 0; i < size; ++i) {
         VkDescriptorBufferInfo bufferInfo = {};
         bufferInfo.buffer = uniformBuffers[i].buffer;
@@ -407,8 +413,6 @@ std::vector<VkDescriptorSet> Swapchain::_createDescriptorSets() {
                                static_cast<uint32_t>(dws.size()), dws.data(), 0,
                                nullptr);
     }
-
-    return descriptorSets;
 }
 
 std::vector<VkCommandBuffer>
@@ -425,6 +429,8 @@ Swapchain::_createCommandBuffers(const scene::Scene& scene) {
         != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers");
     }
+
+    _updateDescriptorSets();
 
     for (std::size_t i = 0; i < buffers.size(); ++i) {
         VkCommandBufferBeginInfo beginInfo = {};
