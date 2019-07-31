@@ -17,7 +17,8 @@ Game::Game() : _rd(), _gen(_rd()), _distribution() {
         }
     }*/
 
-    _scene = scene::Scene("../obj/chalet.obj");
+    _scene = scene::Scene("../obj/chalet/chalet.obj");
+    // _scene = scene::Scene("../obj/cathedral/combined02.obj");
 }
 
 void Game::update(float dt) {

@@ -14,8 +14,10 @@ Swapchain::Swapchain(Context& context, BufferManager& bufferManager, int width,
 
     descriptorSetLayout = _createDescriptorSetLayout();
     scene::Scene emptyScene;
-    texture = std::make_unique<Texture>("../obj/chalet.jpg", _bufferManager,
-                                        _context);
+    // texture = std::make_unique<Texture>("../obj/cathedral/base_diff.jpg",
+    //                                     _bufferManager, _context);
+    texture = std::make_unique<Texture>("../obj/chalet/chalet.jpg",
+                                        _bufferManager, _context);
     sampler = std::make_unique<Sampler>(_context, texture->mipLevels);
     vertexBuffer = _createVertexBuffer(emptyScene.vertices);
     indexBuffer = _createIndexBuffer(emptyScene.indices);

@@ -133,7 +133,7 @@ void Renderer::updateUniformBuffer(uint32_t currentImage) {
     ubo.proj = glm::perspective(glm::radians(45.0f),
                                 _swapchain->extent.width
                                     / (float)_swapchain->extent.height,
-                                0.1f, 10.0f);
+                                0.1f, 1000.0f);
     ubo.proj[1][1] *= -1; // openGL -> Vulkan conversion
 
     _swapchain->updateUniformBuffer(currentImage, ubo);
