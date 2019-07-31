@@ -13,6 +13,7 @@ class Context {
   public:
     Context(GLFWwindow* window);
     void destroy();
+    void deviceWaitIdle();
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);

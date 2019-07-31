@@ -31,6 +31,10 @@ void Context::destroy() {
     vkDestroyInstance(instance, nullptr);
 }
 
+void Context::deviceWaitIdle() {
+    vkDeviceWaitIdle(device);
+}
+
 VkCommandBuffer Context::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

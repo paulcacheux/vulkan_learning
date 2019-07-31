@@ -31,22 +31,23 @@ Renderer::~Renderer() {
     bufferManager.reset();
 
     for (const auto& pair : _syncObjects) {
-        vkDestroySemaphore(device(), pair.imageAvailable, nullptr);
-        vkDestroySemaphore(device(), pair.renderFinished, nullptr);
-        vkDestroyFence(device(), pair.inFlight, nullptr);
+        vkDestroySemaphore(context.device, pair.imageAvailable, nullptr);
+        vkDestroySemaphore(context.device, pair.renderFinished, nullptr);
+        vkDestroyFence(context.device, pair.inFlight, nullptr);
     }
 }
 
 void Renderer::drawFrame() {
     auto currentSync = _syncObjects[currentFrame];
 
-    vkWaitForFences(device(), 1, &currentSync.inFlight, VK_TRUE,
+    vkWaitForFences(context.device, 1, &currentSync.inFlight, VK_TRUE,
                     std::numeric_limits<uint64_t>::max());
 
     uint32_t imageIndex;
-    auto acqRes = vkAcquireNextImageKHR(
-        device(), _swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
-        currentSync.imageAvailable, VK_NULL_HANDLE, &imageIndex);
+    auto acqRes = vkAcquireNextImageKHR(context.device, _swapchain->swapchain,
+                                        std::numeric_limits<uint64_t>::max(),
+                                        currentSync.imageAvailable,
+                                        VK_NULL_HANDLE, &imageIndex);
 
     if (acqRes == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
@@ -75,7 +76,7 @@ void Renderer::drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkResetFences(device(), 1, &currentSync.inFlight);
+    vkResetFences(context.device, 1, &currentSync.inFlight);
     if (vkQueueSubmit(context.graphicsQueue, 1, &submitInfo,
                       currentSync.inFlight)
         != VK_SUCCESS) {
@@ -105,14 +106,10 @@ void Renderer::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::deviceWaitIdle() {
-    vkDeviceWaitIdle(device());
-}
-
 void Renderer::recreateSwapchain() {
     _appWindow.waitUntilUnminimized();
 
-    deviceWaitIdle();
+    context.deviceWaitIdle();
 
     auto [width, height] = _appWindow.getFrameBufferSize();
     _swapchain->recreate(width, height, *_scene);
@@ -149,14 +146,6 @@ void Renderer::setViewMatrix(glm::mat4 viewMatrix) {
     _viewMatrix = viewMatrix;
 }
 
-VkDevice Renderer::device() {
-    return context.device;
-}
-
-VmaAllocator Renderer::allocator() {
-    return context.allocator;
-}
-
 std::vector<Renderer::SyncObject> Renderer::_createSyncObjects() {
     std::vector<SyncObject> objects;
     objects.reserve(MAX_FRAMES_IN_FLIGHT);
@@ -169,12 +158,14 @@ std::vector<Renderer::SyncObject> Renderer::_createSyncObjects() {
 
     for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         SyncObject sync;
-        if (vkCreateSemaphore(device(), &semInfo, nullptr, &sync.imageAvailable)
+        if (vkCreateSemaphore(context.device, &semInfo, nullptr,
+                              &sync.imageAvailable)
                 != VK_SUCCESS
-            || vkCreateSemaphore(device(), &semInfo, nullptr,
+            || vkCreateSemaphore(context.device, &semInfo, nullptr,
                                  &sync.renderFinished)
                    != VK_SUCCESS
-            || vkCreateFence(device(), &fenceInfo, nullptr, &sync.inFlight)
+            || vkCreateFence(context.device, &fenceInfo, nullptr,
+                             &sync.inFlight)
                    != VK_SUCCESS) {
             throw std::runtime_error("failed to create semaphore");
         }

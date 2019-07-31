@@ -36,7 +36,6 @@ class Renderer {
 
     bool checkValidationLayerSupport();
     void drawFrame();
-    void deviceWaitIdle();
     void recreateSwapchain();
     void setMustRecreateSwapchain() {
         _mustRecreateSwapchain = true;
@@ -45,9 +44,6 @@ class Renderer {
 
     void setScene(const scene::Scene* scene);
     void setViewMatrix(glm::mat4 viewMatrix);
-
-    VkDevice device();
-    VmaAllocator allocator();
 
     std::unique_ptr<BufferManager> bufferManager;
     Context& context;
