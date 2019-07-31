@@ -53,7 +53,6 @@ class Renderer {
     Context& context;
 
   private:
-    std::vector<const char*> _getRequiredExtensions();
     std::vector<SyncObject> _createSyncObjects();
 
     const scene::Scene* _scene;
