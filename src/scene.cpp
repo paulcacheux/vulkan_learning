@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "tiny_obj_loader.h"
+#include "vulkan/utils.hpp"
 
 #include <unordered_map>
 
@@ -98,63 +99,52 @@ glm::mat4 Scene::getModelMatrix() const {
 }
 
 Camera::Camera() {
-    eye = glm::vec3(1, 0, 3);
-    // eye = 2.0f * glm::vec3(1.0f);
-    center = glm::vec3(-0.4, -0.4, -0.4);
+    cameraPos = glm::vec3(0, 0.5, -1.0);
+    cameraFront = glm::vec3(0, 0, -1.0f);
+    cameraUp = up;
+    // eye = glm::vec3(-1.4, -1.4, -1.4);
+    // centerOffset = glm::vec3(1, 1, 1);
 }
 
 void Camera::moveLeft(float offset) {
-    updateEyeAndCenter(glm::vec3(-offset, .0f, .0f));
+    cameraPos -= offset * glm::normalize(glm::cross(cameraFront, cameraUp));
 }
 
 void Camera::moveRight(float offset) {
-    updateEyeAndCenter(glm::vec3(offset, .0f, .0f));
+    cameraPos += offset * glm::normalize(glm::cross(cameraFront, cameraUp));
 }
 
 void Camera::moveUp(float offset) {
-    updateEyeAndCenter(glm::vec3(.0f, offset, .0f));
+    cameraPos += offset * cameraUp;
 }
 
 void Camera::moveDown(float offset) {
-    updateEyeAndCenter(glm::vec3(.0f, -offset, .0f));
+    cameraPos -= offset * cameraUp;
 }
 
 void Camera::moveFront(float offset) {
-    updateEyeAndCenter(glm::vec3(.0f, .0f, -offset));
+    cameraPos += offset * cameraFront;
 }
 
 void Camera::moveBack(float offset) {
-    updateEyeAndCenter(glm::vec3(.0f, .0f, offset));
-}
-
-void Camera::updateEyeAndCenter(glm::vec3 offset) {
-    auto trans = glm::translate(glm::mat4(1.0f), offset);
-    auto realTrans = computeInViewCoordinates(trans);
-    eye = applyTransPoint(eye, realTrans);
-    center = applyTransPoint(center, realTrans);
+    cameraPos -= offset * cameraFront;
 }
 
 void Camera::updateViewTarget(glm::vec2 offset) {
-    auto nextOffset = glm::vec3(offset.x, -offset.y, .0f);
-    auto trans = glm::translate(glm::mat4(1.0f), nextOffset);
-    auto realTrans = computeInViewCoordinates(trans);
-    center = applyTransPoint(center, realTrans);
+    yaw += offset.x;
+    pitch -= offset.y;
+
+    pitch = vulkan::utils::clamp(pitch, -89.0f, 89.0f);
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
 }
 
-glm::mat4 Camera::computeInViewCoordinates(glm::mat4 trans) const {
-    auto view = getViewMatrix();
-    auto inv = glm::inverse(view);
-    return inv * trans * view;
-}
 glm::mat4 Camera::getViewMatrix() const {
-    glm::vec3 up(0.0f, 1.0f, 0.0f);
-    return glm::lookAt(eye, center, up);
-}
-
-glm::vec3 applyTransPoint(glm::vec3 point, glm::mat4 trans) {
-    auto point4 = glm::vec4(point, 1.0f);
-    auto res = trans * point4;
-    return glm::vec3(res.x, res.y, res.z);
+    return glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 }
 
 } // namespace scene

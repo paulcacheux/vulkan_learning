@@ -34,7 +34,7 @@ void Game::update(float dt) {
     UPDATE(Down)
     UPDATE(Front)
     UPDATE(Back)
-    _camera.updateViewTarget(0.0038f * _currentMouseVec);
+    _camera.updateViewTarget(0.05f * _currentMouseVec);
     _currentMouseVec = glm::vec2(.0f);
 }
 

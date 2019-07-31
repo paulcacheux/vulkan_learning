@@ -60,18 +60,18 @@ struct Camera {
     void moveDown(float offset);
     void moveFront(float offset);
     void moveBack(float offset);
-    void updateEyeAndCenter(glm::vec3 offset);
     // view
     void updateViewTarget(glm::vec2 offset);
 
-    glm::mat4 computeInViewCoordinates(glm::mat4 trans) const;
     glm::mat4 getViewMatrix() const;
 
-    glm::vec3 eye;
-    glm::vec3 center;
+    glm::vec3 up = {0.0f, 1.0, 0.0f};
+    glm::vec3 cameraPos;
+    glm::vec3 cameraFront;
+    glm::vec3 cameraUp;
+    float pitch = .0f;
+    float yaw = .0f;
 };
-
-glm::vec3 applyTransPoint(glm::vec3 point, glm::mat4 trans);
 
 } // namespace scene
 
