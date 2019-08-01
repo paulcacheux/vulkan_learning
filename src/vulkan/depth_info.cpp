@@ -8,21 +8,22 @@
 namespace vulkan {
 
 DepthResources::DepthResources(Context& context, BufferManager& bufferManager,
-                               VkExtent2D scExtent)
+                               vk::Extent2D scExtent)
     : _context(context), _bufferManager(bufferManager) {
 
     uint32_t mipLevels = 1;
     depthFormat = _findDepthFormat(_context.physicalDevice);
     depthImage = _bufferManager.createImage(
         scExtent.width, scExtent.height, mipLevels, depthFormat,
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eDepthStencilAttachment,
         VMA_MEMORY_USAGE_GPU_ONLY);
     depthImageView = utils::createImageView(depthImage.image, depthFormat,
-                                            VK_IMAGE_ASPECT_DEPTH_BIT,
+                                            vk::ImageAspectFlagBits::eDepth,
                                             mipLevels, _context.device);
     utils::transitionImageLayout(
-        depthImage.image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, mipLevels, _context);
+        depthImage.image, depthFormat, vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal, mipLevels, _context);
 }
 
 DepthResources::~DepthResources() {
@@ -30,25 +31,24 @@ DepthResources::~DepthResources() {
     _bufferManager.destroyImage(depthImage);
 }
 
-VkFormat DepthResources::_findDepthFormat(VkPhysicalDevice physicalDevice) {
+vk::Format DepthResources::_findDepthFormat(vk::PhysicalDevice physicalDevice) {
     return _findSupportedFormat(
-        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
-         VK_FORMAT_D24_UNORM_S8_UINT},
-        VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        physicalDevice);
+        {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint,
+         vk::Format::eD24UnormS8Uint},
+        vk::ImageTiling::eOptimal,
+        vk::FormatFeatureFlagBits::eDepthStencilAttachment, physicalDevice);
 }
 
-VkFormat DepthResources::_findSupportedFormat(
-    const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-    VkFormatFeatureFlags features, VkPhysicalDevice physicalDevice) {
+vk::Format DepthResources::_findSupportedFormat(
+    const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
+    vk::FormatFeatureFlags features, vk::PhysicalDevice physicalDevice) {
     for (auto format : candidates) {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        auto props = physicalDevice.getFormatProperties(format);
 
-        if (tiling == VK_IMAGE_TILING_LINEAR
+        if (tiling == vk::ImageTiling::eLinear
             && (props.linearTilingFeatures & features) == features) {
             return format;
-        } else if (tiling == VK_IMAGE_TILING_OPTIMAL
+        } else if (tiling == vk::ImageTiling::eOptimal
                    && (props.optimalTilingFeatures & features) == features) {
             return format;
         }

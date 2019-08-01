@@ -1,8 +1,8 @@
 #ifndef VULKAN_UTILS_TUTO_HPP
 #define VULKAN_UTILS_TUTO_HPP
 
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.hpp>
 
 #include <optional>
 #include <vector>
@@ -35,9 +35,9 @@ struct QueueFamilyIndices {
 };
 
 struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> presentModes;
 };
 
 std::vector<char> readFile(const std::string& path);
@@ -50,42 +50,41 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 
-VkResult CreateDebugUtilsMessengerEXT(
-    VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-    const VkAllocationCallbacks* pAllocator,
+vk::Result CreateDebugUtilsMessengerEXT(
+    vk::Instance instance,
+    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     VkDebugUtilsMessengerEXT* pDebugMessenger);
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                   VkDebugUtilsMessengerEXT debugMessenger,
-                                   const VkAllocationCallbacks* pAllocator);
+void DestroyDebugUtilsMessengerEXT(vk::Instance instance,
+                                   VkDebugUtilsMessengerEXT debugMessenger);
 
-VkApplicationInfo makeAppInfo();
+vk::ApplicationInfo makeAppInfo();
 VkDebugUtilsMessengerCreateInfoEXT makeDebugMessengerCreateInfo();
-int rateDeviceSuitability(VkPhysicalDevice device, VkSurfaceKHR surface);
-bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
-                                     VkSurfaceKHR surface);
-SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
-                                              VkSurfaceKHR surface);
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-    const std::vector<VkSurfaceFormatKHR>& availableFormats);
-VkPresentModeKHR chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR>& availablePresentModes);
-VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
-                            uint32_t width, uint32_t height);
+int rateDeviceSuitability(vk::PhysicalDevice device, vk::SurfaceKHR surface);
+bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
+QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device,
+                                     vk::SurfaceKHR surface);
+SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device,
+                                              vk::SurfaceKHR surface);
+vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<vk::SurfaceFormatKHR>& availableFormats);
+vk::PresentModeKHR chooseSwapPresentMode(
+    const std::vector<vk::PresentModeKHR>& availablePresentModes);
+vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities,
+                              uint32_t width, uint32_t height);
 
-uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties,
-                        VkPhysicalDevice device);
+uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
+                        vk::PhysicalDevice device);
 
-VkImageView createImageView(VkImage image, VkFormat format,
-                            VkImageAspectFlags aspectFlags, uint32_t mipLevels,
-                            VkDevice device);
+vk::ImageView createImageView(vk::Image image, vk::Format format,
+                              vk::ImageAspectFlags aspectFlags,
+                              uint32_t mipLevels, vk::Device device);
 
-void transitionImageLayout(VkImage image, VkFormat format,
-                           VkImageLayout oldLayout, VkImageLayout newLayout,
+void transitionImageLayout(vk::Image image, vk::Format format,
+                           vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
                            uint32_t mipLevels, Context& context);
 
-bool hasStencilComponent(VkFormat format);
+bool hasStencilComponent(vk::Format format);
 
 bool checkValidationLayerSupport();
 

@@ -13,14 +13,14 @@
 namespace vulkan {
 
 struct Buffer {
-    VkBuffer buffer;
+    vk::Buffer buffer;
     VmaAllocation allocation;
 
     void destroy(VmaAllocator allocator);
 };
 
 struct Image {
-    VkImage image;
+    vk::Image image;
     VmaAllocation allocation;
 
     void destroy(VmaAllocator allocator);
@@ -30,16 +30,17 @@ class BufferManager {
   public:
     BufferManager(Context& context);
 
-    Buffer createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+    Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
                         VmaMemoryUsage vmaUsage);
     Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
-                      VkFormat format, VkImageTiling tiling,
-                      VkImageUsageFlags usage, VmaMemoryUsage vmaUsage);
+                      vk::Format format, vk::ImageTiling tiling,
+                      vk::ImageUsageFlags usage, VmaMemoryUsage vmaUsage);
     template <class T>
     Buffer createTwoLevelBuffer(const std::vector<T>& sceneData,
-                                VkBufferUsageFlags addUsage);
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
+                                vk::BufferUsageFlags addUsage);
+    void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer,
+                    vk::DeviceSize size);
+    void copyBufferToImage(vk::Buffer buffer, vk::Image image, uint32_t width,
                            uint32_t height);
     void destroyBuffer(Buffer buffer);
     void destroyImage(Image image);
@@ -52,14 +53,14 @@ class BufferManager {
 
 template <class T>
 Buffer BufferManager::createTwoLevelBuffer(const std::vector<T>& sceneData,
-                                           VkBufferUsageFlags addUsage) {
+                                           vk::BufferUsageFlags addUsage) {
     auto size = sizeof(T) * sceneData.size();
     auto buffer
-        = createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | addUsage,
+        = createBuffer(size, vk::BufferUsageFlagBits::eTransferDst | addUsage,
                        VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    Buffer stagingBuffer = createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                        VMA_MEMORY_USAGE_CPU_ONLY);
+    Buffer stagingBuffer = createBuffer(
+        size, vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_ONLY);
     void* data;
     vmaMapMemory(allocator, stagingBuffer.allocation, &data);
     std::memcpy(data, sceneData.data(), static_cast<std::size_t>(size));

@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <tuple>
+#include <vulkan/vulkan.hpp>
 
 #include "vk_mem_alloc.h"
 
@@ -15,29 +16,30 @@ class Context {
     void destroy();
     void deviceWaitIdle();
 
-    VkCommandBuffer beginSingleTimeCommands();
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+    vk::CommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(vk::CommandBuffer commandBuffer);
 
-    VkSurfaceKHR surface;
-    VkPhysicalDevice physicalDevice;
-    VkDevice device;
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+    vk::SurfaceKHR surface;
+    vk::PhysicalDevice physicalDevice;
+    vk::Device device;
+    vk::Queue graphicsQueue;
+    vk::Queue presentQueue;
 
     VmaAllocator allocator;
-    VkInstance instance;
-    VkCommandPool commandPool;
-    VkDebugUtilsMessengerEXT debugMessenger;
+    vk::CommandPool commandPool;
+    vk::DebugUtilsMessengerEXT debugMessenger;
+    vk::Instance instance;
 
   private:
-    static VkSurfaceKHR _createSurface(GLFWwindow* window, VkInstance instance);
-    VkPhysicalDevice _pickPhysicalDevice(VkInstance instance);
-    std::tuple<VkDevice, VkQueue, VkQueue> _createLogicalDevice();
+    static vk::SurfaceKHR _createSurface(GLFWwindow* window,
+                                         vk::Instance instance);
+    vk::PhysicalDevice _pickPhysicalDevice(vk::Instance instance);
+    std::tuple<vk::Device, vk::Queue, vk::Queue> _createLogicalDevice();
 
     VmaAllocator _createAllocator();
-    VkCommandPool _createCommandPool();
+    vk::CommandPool _createCommandPool();
     VkDebugUtilsMessengerEXT _setupDebugMessenger();
-    VkInstance _createInstance();
+    vk::Instance _createInstance();
 };
 } // namespace vulkan
 

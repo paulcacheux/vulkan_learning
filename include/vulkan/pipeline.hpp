@@ -2,21 +2,21 @@
 #define VULKAN_PIPELINE_HPP
 
 #include <string>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace vulkan {
 
 struct Pipeline {
-    Pipeline(VkDevice device, VkDescriptorSetLayout dsl, VkExtent2D extent,
-             VkRenderPass renderPass);
+    Pipeline(vk::Device device, vk::DescriptorSetLayout dsl,
+             vk::Extent2D extent, vk::RenderPass renderPass);
     ~Pipeline();
 
-    VkPipelineLayout layout;
-    VkPipeline pipeline;
-    VkDevice device;
+    vk::PipelineLayout layout;
+    vk::Pipeline pipeline;
+    vk::Device device;
 
   private:
-    VkShaderModule _createShaderModule(const std::string& path);
+    vk::ShaderModule _createShaderModule(const std::string& path);
 };
 
 } // namespace vulkan

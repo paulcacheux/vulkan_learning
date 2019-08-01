@@ -24,7 +24,7 @@ void Context::destroy() {
     vmaDestroyAllocator(allocator);
 
     if (utils::enableValidationLayers) {
-        utils::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        utils::DestroyDebugUtilsMessengerEXT(instance, debugMessenger);
     }
 
     vkDestroyDevice(device, nullptr);
@@ -35,40 +35,37 @@ void Context::deviceWaitIdle() {
     vkDeviceWaitIdle(device);
 }
 
-VkCommandBuffer Context::beginSingleTimeCommands() {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+vk::CommandBuffer Context::beginSingleTimeCommands() {
+    vk::CommandBufferAllocateInfo allocInfo;
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+    vk::CommandBuffer commandBuffer;
+    device.allocateCommandBuffers(&allocInfo, &commandBuffer);
 
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
 
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    commandBuffer.begin(beginInfo);
 
     return commandBuffer;
 }
 
-void Context::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
-    vkEndCommandBuffer(commandBuffer);
+void Context::endSingleTimeCommands(vk::CommandBuffer commandBuffer) {
+    commandBuffer.end();
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    vk::SubmitInfo submitInfo;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
+    graphicsQueue.submit(submitInfo, vk::Fence());
+    graphicsQueue.waitIdle();
 
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    device.freeCommandBuffers(commandPool, commandBuffer);
 }
 
-VkInstance Context::_createInstance() {
+vk::Instance Context::_createInstance() {
     if (utils::enableValidationLayers
         && !utils::checkValidationLayerSupport()) {
         throw std::runtime_error(
@@ -77,8 +74,7 @@ VkInstance Context::_createInstance() {
 
     auto appInfo = utils::makeAppInfo();
 
-    VkInstanceCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    vk::InstanceCreateInfo createInfo;
     createInfo.pApplicationInfo = &appInfo;
 
     // glfw extensions
@@ -100,14 +96,11 @@ VkInstance Context::_createInstance() {
         createInfo.pNext = nullptr;
     }
 
-    VkInstance instance;
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance");
-    }
-    return instance;
+    return vk::createInstance(createInfo);
 }
 
-VkSurfaceKHR Context::_createSurface(GLFWwindow* window, VkInstance instance) {
+vk::SurfaceKHR Context::_createSurface(GLFWwindow* window,
+                                       vk::Instance instance) {
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface)
         != VK_SUCCESS) {
@@ -116,18 +109,13 @@ VkSurfaceKHR Context::_createSurface(GLFWwindow* window, VkInstance instance) {
     return surface;
 }
 
-VkPhysicalDevice Context::_pickPhysicalDevice(VkInstance instance) {
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-
-    if (deviceCount == 0) {
+vk::PhysicalDevice Context::_pickPhysicalDevice(vk::Instance instance) {
+    auto devices = instance.enumeratePhysicalDevices();
+    if (devices.empty()) {
         throw std::runtime_error("failed to find GPUs with Vulkan support");
     }
 
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-    std::multimap<int, VkPhysicalDevice> candidates;
+    std::multimap<int, vk::PhysicalDevice> candidates;
 
     for (const auto& device : devices) {
         int score = utils::rateDeviceSuitability(device, surface);
@@ -142,11 +130,11 @@ VkPhysicalDevice Context::_pickPhysicalDevice(VkInstance instance) {
     }
 }
 
-std::tuple<VkDevice, VkQueue, VkQueue> Context::_createLogicalDevice() {
+std::tuple<vk::Device, vk::Queue, vk::Queue> Context::_createLogicalDevice() {
     utils::QueueFamilyIndices indices
         = utils::findQueueFamilies(physicalDevice, surface);
 
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {
         indices.graphicsFamily.value(),
         indices.presentFamily.value(),
@@ -154,18 +142,16 @@ std::tuple<VkDevice, VkQueue, VkQueue> Context::_createLogicalDevice() {
 
     float queuePriority = 1.0f;
     for (auto queueFamily : uniqueQueueFamilies) {
-        VkDeviceQueueCreateInfo queueCreateInfo = {};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        vk::DeviceQueueCreateInfo queueCreateInfo = {};
         queueCreateInfo.queueFamilyIndex = queueFamily;
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    VkPhysicalDeviceFeatures deviceFeatures = {};
+    vk::PhysicalDeviceFeatures deviceFeatures = {};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
-    VkDeviceCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    vk::DeviceCreateInfo createInfo = {};
     createInfo.queueCreateInfoCount
         = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
@@ -183,16 +169,9 @@ std::tuple<VkDevice, VkQueue, VkQueue> Context::_createLogicalDevice() {
         createInfo.enabledLayerCount = 0;
     }
 
-    VkDevice device;
-    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create logical device");
-    }
-
-    VkQueue graphicsQueue;
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-    VkQueue presentQueue;
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+    auto device = physicalDevice.createDevice(createInfo);
+    auto graphicsQueue = device.getQueue(*indices.graphicsFamily, 0);
+    auto presentQueue = device.getQueue(*indices.presentFamily, 0);
 
     return std::make_tuple(device, graphicsQueue, presentQueue);
 }
@@ -207,21 +186,14 @@ VmaAllocator Context::_createAllocator() {
     return allocator;
 }
 
-VkCommandPool Context::_createCommandPool() {
+vk::CommandPool Context::_createCommandPool() {
     auto queueFamilyIndices = utils::findQueueFamilies(physicalDevice, surface);
 
-    VkCommandPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    vk::CommandPoolCreateInfo poolInfo;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-    poolInfo.flags = 0;
+    poolInfo.flags = {};
 
-    VkCommandPool commandPool;
-    if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to create command pool");
-    }
-
-    return commandPool;
+    return device.createCommandPool(poolInfo);
 }
 
 VkDebugUtilsMessengerEXT Context::_setupDebugMessenger() {
@@ -229,9 +201,9 @@ VkDebugUtilsMessengerEXT Context::_setupDebugMessenger() {
         auto createInfo = utils::makeDebugMessengerCreateInfo();
         VkDebugUtilsMessengerEXT debugMessenger;
 
-        if (utils::CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
+        if (utils::CreateDebugUtilsMessengerEXT(instance, &createInfo,
                                                 &debugMessenger)
-            != VK_SUCCESS) {
+            != vk::Result::eSuccess) {
             throw std::runtime_error("failed to set up debug messenger");
         }
         return debugMessenger;

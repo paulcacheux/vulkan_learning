@@ -2,7 +2,7 @@
 #define VULKAN_DEPTH_INFO
 
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include "vk_mem_alloc.h"
 #include "vulkan/buffer_manager.hpp"
@@ -11,19 +11,18 @@ namespace vulkan {
 
 struct DepthResources {
     DepthResources(Context& context, BufferManager& bufferManager,
-                   VkExtent2D scExtent);
+                   vk::Extent2D scExtent);
     ~DepthResources();
 
-    VkFormat depthFormat;
+    vk::Format depthFormat;
     Image depthImage;
-    VkImageView depthImageView;
+    vk::ImageView depthImageView;
 
   private:
-    static VkFormat _findDepthFormat(VkPhysicalDevice physicalDevice);
-    static VkFormat
-    _findSupportedFormat(const std::vector<VkFormat>& candidates,
-                         VkImageTiling tiling, VkFormatFeatureFlags features,
-                         VkPhysicalDevice physicalDevice);
+    static vk::Format _findDepthFormat(vk::PhysicalDevice physicalDevice);
+    static vk::Format _findSupportedFormat(
+        const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
+        vk::FormatFeatureFlags features, vk::PhysicalDevice physicalDevice);
 
     Context& _context;
     BufferManager& _bufferManager;

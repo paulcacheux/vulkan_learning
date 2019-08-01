@@ -14,20 +14,21 @@ BufferManager::BufferManager(Context& context)
     : allocator(context.allocator), _context(context) {
 }
 
-Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+Buffer BufferManager::createBuffer(vk::DeviceSize size,
+                                   vk::BufferUsageFlags usage,
                                    VmaMemoryUsage vmaUsage) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vk::BufferCreateInfo bufferInfo;
     bufferInfo.size = size;
     bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+    auto bufferInfoC = static_cast<VkBufferCreateInfo>(bufferInfo);
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = vmaUsage;
 
     VkBuffer buffer;
     VmaAllocation allocation;
-    if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer,
+    if (vmaCreateBuffer(allocator, &bufferInfoC, &allocInfo, &buffer,
                         &allocation, nullptr)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create buffer");
@@ -36,12 +37,12 @@ Buffer BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 }
 
 Image BufferManager::createImage(uint32_t width, uint32_t height,
-                                 uint32_t mipLevels, VkFormat format,
-                                 VkImageTiling tiling, VkImageUsageFlags usage,
+                                 uint32_t mipLevels, vk::Format format,
+                                 vk::ImageTiling tiling,
+                                 vk::ImageUsageFlags usage,
                                  VmaMemoryUsage vmaUsage) {
-    VkImageCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    createInfo.imageType = VK_IMAGE_TYPE_2D;
+    vk::ImageCreateInfo createInfo;
+    createInfo.imageType = vk::ImageType::e2D;
     createInfo.extent.width = width;
     createInfo.extent.height = height;
     createInfo.extent.depth = 1;
@@ -50,12 +51,13 @@ Image BufferManager::createImage(uint32_t width, uint32_t height,
 
     createInfo.format = format;
     createInfo.tiling = tiling;
-    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    createInfo.initialLayout = vk::ImageLayout::eUndefined;
     createInfo.usage = usage;
-    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.sharingMode = vk::SharingMode::eExclusive;
 
-    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    createInfo.flags = 0;
+    createInfo.samples = vk::SampleCountFlagBits::e1;
+    createInfo.flags = {};
+    auto createInfoC = static_cast<VkImageCreateInfo>(createInfo);
 
     VmaAllocationCreateInfo allocInfo = {};
 
@@ -66,7 +68,7 @@ Image BufferManager::createImage(uint32_t width, uint32_t height,
 
     VkImage image;
     VmaAllocation allocation;
-    if (vmaCreateImage(allocator, &createInfo, &allocInfo, &image, &allocation,
+    if (vmaCreateImage(allocator, &createInfoC, &allocInfo, &image, &allocation,
                        nullptr)
         != VK_SUCCESS) {
         throw std::runtime_error("failed to create image");
@@ -74,38 +76,38 @@ Image BufferManager::createImage(uint32_t width, uint32_t height,
     return Image{image, allocation};
 }
 
-void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer,
-                               VkDeviceSize size) {
+void BufferManager::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer,
+                               vk::DeviceSize size) {
     auto commandBuffer = _context.beginSingleTimeCommands();
 
-    VkBufferCopy copyRegion = {};
+    vk::BufferCopy copyRegion = {};
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+    commandBuffer.copyBuffer(srcBuffer, dstBuffer, copyRegion);
 
     _context.endSingleTimeCommands(commandBuffer);
 }
 
-void BufferManager::copyBufferToImage(VkBuffer buffer, VkImage image,
+void BufferManager::copyBufferToImage(vk::Buffer buffer, vk::Image image,
                                       uint32_t width, uint32_t height) {
     auto commandBuffer = _context.beginSingleTimeCommands();
 
-    VkBufferImageCopy region = {};
+    vk::BufferImageCopy region = {};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
 
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
 
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {width, height, 1};
+    region.imageOffset = vk::Offset3D{0, 0, 0};
+    region.imageExtent = vk::Extent3D{width, height, 1};
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer, image,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    commandBuffer.copyBufferToImage(
+        buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
 
     _context.endSingleTimeCommands(commandBuffer);
 }

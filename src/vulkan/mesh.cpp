@@ -2,33 +2,34 @@
 
 namespace vulkan {
 
-VkVertexInputBindingDescription Vertex::getBindingDescription() {
-    VkVertexInputBindingDescription bindingDescription = {};
+vk::VertexInputBindingDescription Vertex::getBindingDescription() {
+    vk::VertexInputBindingDescription bindingDescription = {};
 
     bindingDescription.binding = 0;
     bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription.inputRate = vk::VertexInputRate::eVertex;
 
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3>
+std::array<vk::VertexInputAttributeDescription, 3>
 Vertex::getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
+    std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions
+        = {};
 
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].format = vk::Format::eR32G32B32A32Sfloat;
     attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].format = vk::Format::eR32G32B32A32Sfloat;
     attributeDescriptions[1].offset = offsetof(Vertex, color);
 
     attributeDescriptions[2].binding = 0;
     attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
     attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
     return attributeDescriptions;
@@ -43,10 +44,10 @@ Mesh::Mesh(BufferManager& bufferManager, std::vector<Vertex> vertices,
     : _bufferManager(bufferManager) {
 
     vertexBuffer = _bufferManager.createTwoLevelBuffer(
-        vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        vertices, vk::BufferUsageFlagBits::eVertexBuffer);
 
     indexBuffer = _bufferManager.createTwoLevelBuffer(
-        indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        indices, vk::BufferUsageFlagBits::eIndexBuffer);
 
     indexCount = static_cast<uint32_t>(indices.size());
 }
@@ -56,16 +57,13 @@ Mesh::~Mesh() {
     _bufferManager.destroyBuffer(indexBuffer);
 }
 
-void Mesh::writeCmdBuffer(VkCommandBuffer cmdBuffer,
-                          VkDescriptorSet* descriptorSet,
-                          VkPipelineLayout pipelineLayout) const {
-    VkBuffer vertexBuffers[] = {vertexBuffer.buffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.buffer, 0,
-                         VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipelineLayout, 0, 1, descriptorSet, 0, nullptr);
+void Mesh::writeCmdBuffer(vk::CommandBuffer cmdBuffer,
+                          vk::DescriptorSet descriptorSet,
+                          vk::PipelineLayout pipelineLayout) const {
+    cmdBuffer.bindVertexBuffers(0, vertexBuffer.buffer, {0});
+    cmdBuffer.bindIndexBuffer(indexBuffer.buffer, 0, vk::IndexType::eUint32);
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                 pipelineLayout, 0, descriptorSet, nullptr);
 
     vkCmdDrawIndexed(cmdBuffer, indexCount, 1, 0, 0, 0);
 }

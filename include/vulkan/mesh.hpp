@@ -9,7 +9,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include "vulkan/buffer_manager.hpp"
 #include "vulkan/context.hpp"
@@ -25,8 +25,8 @@ struct Vertex {
     glm::vec3 color;
     glm::vec2 texCoord;
 
-    static VkVertexInputBindingDescription getBindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 3>
+    static vk::VertexInputBindingDescription getBindingDescription();
+    static std::array<vk::VertexInputAttributeDescription, 3>
     getAttributeDescriptions();
 };
 
@@ -38,9 +38,9 @@ class Mesh {
          std::vector<uint32_t> indices);
     ~Mesh();
 
-    void writeCmdBuffer(VkCommandBuffer cmdBuffer,
-                        VkDescriptorSet* descriptorSet,
-                        VkPipelineLayout pipelineLayout) const;
+    void writeCmdBuffer(vk::CommandBuffer cmdBuffer,
+                        vk::DescriptorSet descriptorSet,
+                        vk::PipelineLayout pipelineLayout) const;
 
   private:
     BufferManager& _bufferManager;
