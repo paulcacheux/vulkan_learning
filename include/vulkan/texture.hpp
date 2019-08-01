@@ -17,11 +17,11 @@ class Texture {
 
     uint32_t mipLevels;
     Image textureImage;
-    VkImageView textureImageView;
+    vk::ImageView textureImageView;
 
   private:
     std::pair<Image, uint32_t> _createTextureImage(const std::string& path);
-    void _generateMipLevels(VkImage image, VkFormat format, uint32_t width,
+    void _generateMipLevels(vk::Image image, vk::Format format, uint32_t width,
                             uint32_t height, uint32_t mipLevels);
 
     BufferManager& _bufferManager;

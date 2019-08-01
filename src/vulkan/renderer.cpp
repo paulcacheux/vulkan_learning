@@ -38,30 +38,29 @@ Renderer::~Renderer() {
 void Renderer::drawFrame() {
     auto currentSync = _syncObjects[currentFrame];
 
-    vkWaitForFences(context.device, 1, &currentSync.inFlight, VK_TRUE,
-                    std::numeric_limits<uint64_t>::max());
+    context.device.waitForFences(currentSync.inFlight, VK_TRUE,
+                                 std::numeric_limits<uint64_t>::max());
 
-    uint32_t imageIndex;
-    auto acqRes = vkAcquireNextImageKHR(context.device, _swapchain->swapchain,
-                                        std::numeric_limits<uint64_t>::max(),
-                                        currentSync.imageAvailable,
-                                        VK_NULL_HANDLE, &imageIndex);
+    auto acqRes = context.device.acquireNextImageKHR(
+        _swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
+        currentSync.imageAvailable, nullptr);
 
-    if (acqRes == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (acqRes.result == vk::Result::eErrorOutOfDateKHR) {
         recreateSwapchain();
         return;
-    } else if (acqRes != VK_SUCCESS && acqRes != VK_SUBOPTIMAL_KHR) {
+    } else if (acqRes.result != vk::Result::eSuccess
+               && acqRes.result != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire swapchain image");
     }
 
+    auto imageIndex = acqRes.value;
     updateUniformBuffer(imageIndex);
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    vk::SubmitInfo submitInfo;
 
-    VkSemaphore waitSemaphores[] = {currentSync.imageAvailable};
-    VkPipelineStageFlags waitStages[]
-        = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    vk::Semaphore waitSemaphores[] = {currentSync.imageAvailable};
+    vk::PipelineStageFlags waitStages[]
+        = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
 
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
@@ -70,34 +69,30 @@ void Renderer::drawFrame() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &_swapchain->commandBuffers[imageIndex];
 
-    VkSemaphore signalSemaphores[] = {currentSync.renderFinished};
+    vk::Semaphore signalSemaphores[] = {currentSync.renderFinished};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    vkResetFences(context.device, 1, &currentSync.inFlight);
-    if (vkQueueSubmit(context.graphicsQueue, 1, &submitInfo,
-                      currentSync.inFlight)
-        != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer");
-    }
+    context.device.resetFences(currentSync.inFlight);
+    context.graphicsQueue.submit(submitInfo, currentSync.inFlight);
 
-    VkPresentInfoKHR presentInfo = {};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    vk::PresentInfoKHR presentInfo;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapchains[] = {_swapchain->swapchain};
+    vk::SwapchainKHR swapchains[] = {_swapchain->swapchain};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapchains;
     presentInfo.pImageIndices = &imageIndex;
 
     presentInfo.pResults = nullptr;
 
-    auto presRes = vkQueuePresentKHR(context.presentQueue, &presentInfo);
-    if (presRes == VK_ERROR_OUT_OF_DATE_KHR || _mustRecreateSwapchain) {
+    auto presRes = context.presentQueue.presentKHR(presentInfo);
+    if (presRes == vk::Result::eErrorOutOfDateKHR || _mustRecreateSwapchain) {
         _mustRecreateSwapchain = false;
         recreateSwapchain();
-    } else if (presRes != VK_SUCCESS && presRes != VK_SUBOPTIMAL_KHR) {
+    } else if (presRes != vk::Result::eSuccess
+               && presRes != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire swapchain image");
     }
 
@@ -151,25 +146,15 @@ std::vector<Renderer::SyncObject> Renderer::_createSyncObjects() {
     std::vector<SyncObject> objects;
     objects.reserve(MAX_FRAMES_IN_FLIGHT);
 
-    VkSemaphoreCreateInfo semInfo = {};
-    semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    VkFenceCreateInfo fenceInfo = {};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vk::SemaphoreCreateInfo semInfo;
+    vk::FenceCreateInfo fenceInfo;
+    fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
     for (auto i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         SyncObject sync;
-        if (vkCreateSemaphore(context.device, &semInfo, nullptr,
-                              &sync.imageAvailable)
-                != VK_SUCCESS
-            || vkCreateSemaphore(context.device, &semInfo, nullptr,
-                                 &sync.renderFinished)
-                   != VK_SUCCESS
-            || vkCreateFence(context.device, &fenceInfo, nullptr,
-                             &sync.inFlight)
-                   != VK_SUCCESS) {
-            throw std::runtime_error("failed to create semaphore");
-        }
+        sync.imageAvailable = context.device.createSemaphore(semInfo);
+        sync.renderFinished = context.device.createSemaphore(semInfo);
+        sync.inFlight = context.device.createFence(fenceInfo);
         objects.push_back(sync);
     }
 

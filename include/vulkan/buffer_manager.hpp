@@ -1,7 +1,7 @@
 #ifndef VULKAN_BUFFER_MANAGER_HPP
 #define VULKAN_BUFFER_MANAGER_HPP
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include <cstring>
 #include <iostream>

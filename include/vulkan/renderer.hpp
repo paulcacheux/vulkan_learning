@@ -1,7 +1,7 @@
 #ifndef VULKAN_TUTO_HPP
 #define VULKAN_TUTO_HPP
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include <cstring>
 #include <memory>
@@ -9,11 +9,11 @@
 #include <tuple>
 #include <vector>
 
-#include "context.hpp"
 #include "game.hpp"
 #include "scene.hpp"
-#include "swapchain.hpp"
 #include "vk_mem_alloc.h"
+#include "vulkan/context.hpp"
+#include "vulkan/swapchain.hpp"
 
 namespace app {
 class Window;
@@ -25,9 +25,9 @@ const int MAX_FRAMES_IN_FLIGHT = 2;
 
 class Renderer {
     struct SyncObject {
-        VkSemaphore imageAvailable;
-        VkSemaphore renderFinished;
-        VkFence inFlight;
+        vk::Semaphore imageAvailable;
+        vk::Semaphore renderFinished;
+        vk::Fence inFlight;
     };
 
   public:

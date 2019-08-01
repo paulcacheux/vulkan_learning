@@ -153,9 +153,6 @@ Pipeline::Pipeline(vk::Device device, vk::DescriptorSetLayout dsl,
 
     device.destroy(vertModule);
     device.destroy(fragModule);
-
-    vkDestroyShaderModule(device, vertModule, nullptr);
-    vkDestroyShaderModule(device, fragModule, nullptr);
 }
 
 Pipeline::~Pipeline() {
@@ -166,7 +163,7 @@ Pipeline::~Pipeline() {
 vk::ShaderModule Pipeline::_createShaderModule(const std::string& path) {
     auto code = utils::readFile(path);
 
-    vk::ShaderModuleCreateInfo createInfo;
+    vk::ShaderModuleCreateInfo createInfo = {};
     createInfo.codeSize = code.size();
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 

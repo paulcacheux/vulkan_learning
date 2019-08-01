@@ -69,7 +69,7 @@ vk::Result CreateDebugUtilsMessengerEXT(
     }
 }
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance,
+void DestroyDebugUtilsMessengerEXT(vk::Instance instance,
                                    VkDebugUtilsMessengerEXT debugMessenger) {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
         instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -164,7 +164,7 @@ QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device,
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueCount > 0
-            && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            && queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
             indices.graphicsFamily = i;
         }
 
@@ -299,7 +299,7 @@ void transitionImageLayout(vk::Image image, vk::Format format,
 
     if (oldLayout == vk::ImageLayout::eUndefined
         && newLayout == vk::ImageLayout::eTransferDstOptimal) {
-        // barrier.srcAccessMask = 0;
+        barrier.srcAccessMask = {};
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
@@ -315,7 +315,7 @@ void transitionImageLayout(vk::Image image, vk::Format format,
     } else if (oldLayout == vk::ImageLayout::eUndefined
                && newLayout
                       == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
-        // barrier.srcAccessMask = 0;
+        barrier.srcAccessMask = {};
         barrier.dstAccessMask
             = vk::AccessFlagBits::eDepthStencilAttachmentRead
               | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
@@ -326,8 +326,9 @@ void transitionImageLayout(vk::Image image, vk::Format format,
         throw std::runtime_error("unsupported layout transition");
     }
 
-    commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, {}, {},
-                                  barrier);
+    commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, nullptr,
+                                  nullptr, barrier);
+
     context.endSingleTimeCommands(commandBuffer);
 }
 
