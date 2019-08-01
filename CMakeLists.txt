@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9.1)
 
-project(VulkanTuto)
+project(VulkanLearning)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -11,16 +11,16 @@ file(GLOB_RECURSE src_files "src/*.cpp" "libs/*.cpp")
 include_directories(libs)
 include_directories(include)
 
-add_executable(vulkan_tuto ${src_files})
+add_executable(vulkan_learning ${src_files})
 
 find_package(glm CONFIG REQUIRED)
-target_link_libraries(vulkan_tuto PRIVATE glm)
+target_link_libraries(vulkan_learning PRIVATE glm)
 
 find_package(glfw3 CONFIG REQUIRED)
-target_link_libraries(vulkan_tuto PRIVATE glfw)
+target_link_libraries(vulkan_learning PRIVATE glfw)
 
 find_package(Vulkan REQUIRED)
-target_link_libraries(vulkan_tuto PRIVATE Vulkan::Vulkan)
+target_link_libraries(vulkan_learning PRIVATE Vulkan::Vulkan)
 
 # shaders
 if (WIN32)
@@ -49,9 +49,9 @@ foreach (GLSL ${shaders_files})
 endforeach()
 
 add_custom_target(shaders DEPENDS ${SPIRV_BINARY_FILES})
-add_dependencies(vulkan_tuto shaders)
+add_dependencies(vulkan_learning shaders)
 
-add_custom_command(TARGET vulkan_tuto POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:vulkan_tuto>/shaders/"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_BINARY_DIR}/shaders" "$<TARGET_FILE_DIR:vulkan_tuto>/shaders"
+add_custom_command(TARGET vulkan_learning POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:vulkan_learning>/shaders/"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_BINARY_DIR}/shaders" "$<TARGET_FILE_DIR:vulkan_learning>/shaders"
 )
